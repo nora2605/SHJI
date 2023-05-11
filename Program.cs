@@ -4,7 +4,7 @@
     {
         static void Main(string[] _1)
         {
-            Console.WriteLine("Hello, World!");
+            REPL.Start();
         }
     }
 }

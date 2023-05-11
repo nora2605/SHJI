@@ -11,6 +11,7 @@ namespace SHJI
         INT,
         ASSIGN,
         PLUS,
+        COLON,
         MINUS,
         BANG,
         ASTERISK,
@@ -36,8 +37,8 @@ namespace SHJI
 
     public struct Token
     {
-        public TokenType Type { get; }
-        public string Literal { get; }
+        public TokenType Type { get; set; }
+        public string Literal { get; set; }
         public int Line { get; set; }
         public int Column { get; set; }
 
@@ -64,6 +65,7 @@ namespace SHJI
         public const string MINUS = "-";
         public const string BANG = "!";
         public const string ASTERISK = "*";
+        public const string COLON = ":";
         public const string SLASH = "/";
         public const string LT = "<";
         public const string GT = ">";
