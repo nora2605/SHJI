@@ -1,0 +1,121 @@
+﻿using System.Collections.Immutable;
+
+namespace SHJI.Lexer
+{
+    public enum TokenType
+    {
+        ILLEGAL,
+        EOF,
+        EOL,
+        IDENT,
+        INT,
+        ASSIGN,
+        PLUS,
+        COLON,
+        MINUS,
+        BANG,
+        ASTERISK,
+        SLASH,
+        LT,
+        GT,
+        EQ,
+        NOT_EQ,
+        COMMA,
+        SEMICOLON,
+        LPAREN,
+        RPAREN,
+        LBRACE,
+        RBRACE,
+        FUNCTION,
+        LET,
+        TRUE,
+        FALSE,
+        IF,
+        ELSE,
+        RETURN,
+        ABYSS
+    }
+
+    public struct Token
+    {
+        public TokenType Type { get; set; }
+        public string Literal { get; set; }
+        public int Line { get; set; }
+        public int Column { get; set; }
+
+        public Token(TokenType Type, string Literal)
+        {
+            this.Type = Type;
+            this.Literal = Literal;
+        }
+        public Token(TokenType Type, string Literal, int Line, int Column) : this(Type, Literal)
+        {
+            this.Line = Line;
+            this.Column = Column;
+        }
+
+        public override readonly string ToString() => TokenConstants.HumanTokenType[Type];
+        public static string ToString(TokenType type) => TokenConstants.HumanTokenType[type];
+    }
+
+    public static class TokenConstants
+    {
+        public readonly static ImmutableDictionary<TokenType, string> HumanTokenType = new Dictionary<TokenType, string>() {
+            { TokenType.ILLEGAL, "ILLEGAL" },
+            { TokenType.EOF, "End of File" },
+            { TokenType.IDENT, "Identifier" },
+            { TokenType.INT, "Integer" },
+            { TokenType.ASSIGN, "=" },
+            { TokenType.PLUS, "+" },
+            { TokenType.MINUS, "-" },
+            { TokenType.LBRACE, "{" },
+            { TokenType.RBRACE, "}" },
+            { TokenType.FUNCTION, "fn" },
+            { TokenType.BANG, "!" },
+            { TokenType.ASTERISK, "*" },
+            { TokenType.COLON, ":" },
+            { TokenType.COMMA, "," },
+            { TokenType.SLASH, "/" },
+            { TokenType.SEMICOLON, ";" },
+            { TokenType.LT, "<" },
+            { TokenType.GT, ">" },
+            { TokenType.EQ, "==" },
+            { TokenType.NOT_EQ, "!=" },
+            { TokenType.LPAREN, "(" },
+            { TokenType.RPAREN, ")" },
+            { TokenType.LET, "let" },
+            { TokenType.TRUE, "true" },
+            { TokenType.FALSE, "false" },
+            { TokenType.IF, "if" },
+            { TokenType.ELSE, "else" },
+            { TokenType.RETURN, "ret" },
+            { TokenType.ABYSS, "abyss" },
+            { TokenType.EOL, "Newline" }
+        
+        }.ToImmutableDictionary();
+    }
+
+    public static class TokenLookup
+    {
+        private static readonly Dictionary<string, TokenType> keywords = new()
+        {
+            { "fn", TokenType.FUNCTION },
+            { "let", TokenType.LET },
+            { "true", TokenType.TRUE },
+            { "false", TokenType.FALSE },
+            { "if", TokenType.IF },
+            { "else", TokenType.ELSE },
+            { "ret", TokenType.RETURN },
+            { "abyss", TokenType.ABYSS }
+        };
+
+        public static TokenType LookupIdent(string ident)
+        {
+            if (keywords.TryGetValue(ident, out TokenType tok))
+            {
+                return tok;
+            }
+            return TokenType.IDENT;
+        }
+    }
+}

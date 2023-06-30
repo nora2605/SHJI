@@ -2,9 +2,13 @@
 {
     internal class Program
     {
-        static void Main(string[] _1)
+        static void Main(string[] args)
         {
-            REPL.Start();
+            // Dictionary<string, string> params = ParseArguments(args);
+            // if (params.HasKey("files")) params["files"].Select(x => Interpreter.ExecuteFile(x));
+            // if (params.HasKey("debug"))
+            REPL.Start(parser_debug: true);
+            // else REPL.Start();
         }
     }
 }

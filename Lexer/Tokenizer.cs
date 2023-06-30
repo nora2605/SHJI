@@ -1,15 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
-using System.Reflection;
-using System.ComponentModel.DataAnnotations;
+﻿using System.Collections;
 
-namespace SHJI
+namespace SHJI.Lexer
 {
-    internal class Lexer
+    internal class Tokenizer : IEnumerable<Token>, IEnumerator<Token>
     {
         private readonly string input;
         private int position;
@@ -19,11 +12,12 @@ namespace SHJI
         private int line = 1;
         private int column = 0;
 
-        public Lexer(string input)
+        private Token current;
+
+        public Tokenizer(string input)
         {
             this.input = input;
             ReadChar();
-
         }
         protected void ReadChar()
         {
@@ -36,111 +30,113 @@ namespace SHJI
                 ch = input[readPosition];
             }
             column++;
-            if (ch == '\n')
-            {
-                line++;
-                column = 0;
-            }
             position = readPosition++;
         }
 
         public Token NextToken()
         {
             SkipWhitespace();
-            Token tok = new Token();
+            Token tok = new();
             switch (ch)
             {
+                case '\n':
+                    line++; column = 0;
+                    tok = NewTokenLC(TokenType.EOL, "\\n"); break;
                 case '=':
                     if (PeekChar() == '=')
                     {
                         char cc = ch;
                         ReadChar();
                         string Literal = cc.ToString() + ch.ToString();
-                        tok = newTokWithLC(TokenType.EQ, Literal);
+                        tok = NewTokenLC(TokenType.EQ, Literal);
                     }
                     else
                     {
-                        tok = newTokWithLC(TokenType.ASSIGN, ch);
+                        tok = NewTokenLC(TokenType.ASSIGN, ch);
                     }
                     break;
                 case '+':
-                    tok = newTokWithLC(TokenType.PLUS, ch); break;
+                    tok = NewTokenLC(TokenType.PLUS, ch); break;
                 case ':':
-                    tok = newTokWithLC(TokenType.COLON, ch); break;
+                    tok = NewTokenLC(TokenType.COLON, ch); break;
                 case '-':
-                    tok = newTokWithLC(TokenType.MINUS, ch); break;
+                    tok = NewTokenLC(TokenType.MINUS, ch); break;
                 case '!':
                     if (PeekChar() == '=')
                     {
                         char cc = ch;
                         ReadChar();
                         string literal = cc.ToString() + ch.ToString();
-                        tok = newTokWithLC(TokenType.NOT_EQ, literal);
+                        tok = NewTokenLC(TokenType.NOT_EQ, literal);
                     }
                     else
                     {
-                        tok = newTokWithLC(TokenType.BANG, ch);
+                        tok = NewTokenLC(TokenType.BANG, ch);
                     }
                     break;
                 case '/':
-                    tok = newTokWithLC(TokenType.SLASH, ch);
+                    tok = NewTokenLC(TokenType.SLASH, ch);
                     break;
                 case '*':
-                    tok = newTokWithLC(TokenType.ASTERISK, ch);
+                    tok = NewTokenLC(TokenType.ASTERISK, ch);
                     break;
                 case '<':
-                    tok = newTokWithLC(TokenType.LT, ch);
+                    tok = NewTokenLC(TokenType.LT, ch);
                     break;
                 case '>':
-                    tok = newTokWithLC(TokenType.GT, ch);
+                    tok = NewTokenLC(TokenType.GT, ch);
                     break;
                 case ';':
-                    tok = newTokWithLC(TokenType.SEMICOLON, ch);
+                    tok = NewTokenLC(TokenType.SEMICOLON, ch);
                     break;
                 case ',':
-                    tok = newTokWithLC(TokenType.COMMA, ch);
+                    tok = NewTokenLC(TokenType.COMMA, ch);
                     break;
                 case '{':
-                    tok = newTokWithLC(TokenType.LBRACE, ch);
+                    tok = NewTokenLC(TokenType.LBRACE, ch);
                     break;
                 case '}':
-                    tok = newTokWithLC(TokenType.RBRACE, ch);
+                    tok = NewTokenLC(TokenType.RBRACE, ch);
                     break;
                 case '(':
-                    tok = newTokWithLC(TokenType.LPAREN, ch);
+                    tok = NewTokenLC(TokenType.LPAREN, ch);
                     break;
                 case ')':
-                    tok = newTokWithLC(TokenType.RPAREN, ch);
+                    tok = NewTokenLC(TokenType.RPAREN, ch);
                     break;
                 case '\0':
-                    tok = newTokWithLC(TokenType.EOF, "");
+                    tok = NewTokenLC(TokenType.EOF, "");
                     break;
+                case '"':
+                    throw new NotImplementedException("No strings yet :(");
                 default:
                     if (IsLetter(ch))
                     {
                         string lit = ReadWhile((ch) => IsLetter(ch) || IsDigit(ch));
                         tok = new Token(TokenLookup.LookupIdent(lit), lit, line, column - lit.Length);
+                        current = tok;
                         return tok;
                     }
                     else if (IsDigit(ch))
                     {
                         string lit = ReadWhile(IsDigit);
                         tok = new Token(TokenType.INT, lit, line, column - lit.Length);
+                        current = tok;
                         return tok;
                     }
                     else
                     {
-                        tok = newTokWithLC(TokenType.ILLEGAL, ch);
+                        tok = NewTokenLC(TokenType.ILLEGAL, ch);
                     }
                     break;
             }
             ReadChar();
-
+            current = tok;
             return tok;
         }
         private void SkipWhitespace()
         {
-            while (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r')
+            while (ch == ' ' || ch == '\t' || ch == '\r')
             {
                 ReadChar();
             }
@@ -168,16 +164,42 @@ namespace SHJI
             return input[initPosition..position];
         }
 
-        private bool IsLetter(char ch) { return ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z' || ch == '_'; }
-        private bool IsDigit(char ch) { return ch >= '0' && ch <= '9'; }
+        private static bool IsLetter(char ch) { return ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z' || ch == '_'; }
+        private static bool IsDigit(char ch) { return ch >= '0' && ch <= '9'; }
 
-        private Token newTokWithLC(TokenType Type, char ident)
+        private Token NewTokenLC(TokenType Type, char ident)
         {
-            return new Token(Type, ident.ToString(), line, column);
+            return new Token(Type, ident.ToString(), line, column - 1);
         }
-        private Token newTokWithLC(TokenType Type, string ident)
+        private Token NewTokenLC(TokenType Type, string ident)
         {
-            return new Token(Type, ident, line, column);
+            return new Token(Type, ident, line, column - ident.Length);
         }
+
+        public Token Current { get => current; }
+        object IEnumerator.Current => current;
+        public bool MoveNext()
+        {
+            NextToken();
+            if (current.Type != TokenType.EOF) return true;
+            return false;
+        }
+
+        public void Reset()
+        {
+            position = 0;
+            current = new Token();
+            readPosition = 0;
+            ch = '\0';
+            line = 1;
+            column = 0;
+            ReadChar();
+        }
+
+        public IEnumerator<Token> GetEnumerator() => this;
+
+        IEnumerator IEnumerable.GetEnumerator() => this;
+
+        public void Dispose() => GC.SuppressFinalize(this);
     }
 }

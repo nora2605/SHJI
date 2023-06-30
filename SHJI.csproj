@@ -21,4 +21,14 @@
     </None>
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Tests\Jane\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="JOHNCS">
+      <HintPath>..\john\JOHNCS\JOHNCS.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
 </Project>
