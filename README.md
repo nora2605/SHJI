@@ -27,6 +27,7 @@ The following constitutes a list of features that still have to be done:
 ### Parser
 
 * Parse Lambda expressions
+* Parse Interpolated strings
 * Parse Array Literals, Object Literals and Tuples
 * Parse different number types
 * Strings
@@ -48,6 +49,19 @@ The following constitutes a list of features that still have to be done:
 * Object Orientation
 * Custom Operator Overloading
 * Extension Blocks
+* MOST COMPLICATED TYPE SYSTEM INFER ALGORITHM: (Extendable by Runtime)
+	* Pseudocode
+	* ```
+	InferTypes(BinaryOperator, Type1, Type2?, depth=0) {
+		OperatorDict = OperatorImplementations[BinaryOperator]
+		if (TryGet OperatorDict[(Type1, Type2?)])
+			return (OperatorDict[(Type1, Type2?)].Function, (OperatorDict[(Type1, Type2,...)].OutType, Type1, Type2, ...))
+		foreach Type get ImplicitTypeConversions
+			foreach CombinationOf ImplicitTypeConversions
+				InferTypes(depth = depth + 1) foreach Combination
+		return Combination.Sort(by depth).Fst()
+	}
+```
 
 ## Credit
 
