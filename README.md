@@ -12,7 +12,7 @@ It will feature:
 
 ## Jane
 
-The Design Goals of Jane can be viewed (here)[https://github.com/nora2605/jane].
+The Design Goals of Jane can be viewed [here](https://github.com/nora2605/jane).
 
 This interpreter is NOT complete and does not represent the design of the Jane Language in its entirety. That stage will come eventually.
 
@@ -51,7 +51,7 @@ The following constitutes a list of features that still have to be done:
 
 ## Credit
 
-HUGE Thanks to the (Writing an Interpreter in Go)[https://interpreterbook.com/] Book by Thorsten Ball. Most of the code (as of July 2023) is a slightly altered workthrough of that Book.
+HUGE Thanks to the [Writing an Interpreter in Go](https://interpreterbook.com/) Book by Thorsten Ball. Most of the code (as of July 2023) is a slightly altered workthrough of that Book.
 
 I encourage everyone who also wants to build their own language to read this book, it gives enough insight that your own changes to the behavior of the Language seem intuitive.
 
