@@ -170,4 +170,12 @@ namespace SHJI.AST
         }
         public override readonly string ToString() => $"{Condition} ? {TruePart} : {FalsePart}";
     }
+
+    internal struct Abyss : IExpression
+    {
+        public Token Token { get; set; }
+        public readonly string TokenLiteral() => Token.Literal;
+        public override readonly string ToString() => "abyss";
+        readonly string IASTNode.JOHNSerialize() => "#";
+    }
 }

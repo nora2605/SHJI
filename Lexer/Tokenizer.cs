@@ -91,6 +91,8 @@ namespace SHJI.Lexer
                 case '/':
                     tok = NewTokenLC(TokenType.SLASH, ch);
                     break;
+                case '^':
+                    tok = NewTokenLC(TokenType.HAT, ch); break;
                 case '*':
                     tok = NewTokenLC(TokenType.ASTERISK, ch);
                     break;

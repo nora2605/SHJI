@@ -42,7 +42,8 @@ namespace SHJI.Lexer
         DOUBLEARROW,
         SINGLEARROW,
         LSQB,
-        RSQB
+        RSQB,
+        HAT
     }
 
     public struct Token
@@ -117,7 +118,8 @@ namespace SHJI.Lexer
             { "ret", TokenType.RETURN },
             { "return", TokenType.RETURN },
             { "void", TokenType.ABYSS },
-            { "abyss", TokenType.ABYSS }
+            { "abyss", TokenType.ABYSS },
+            { "null", TokenType.ABYSS }
         };
 
         public static TokenType LookupIdent(string ident)

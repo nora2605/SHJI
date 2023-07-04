@@ -5,6 +5,7 @@ using SHJI.Lexer;
 using SHJI.Parser;
 using System.ANSIConsole;
 using System.Runtime.CompilerServices;
+using SHJI.Interpreter;
 
 namespace SHJI
 {
@@ -70,41 +71,73 @@ namespace SHJI
             prevInput = input;
             Parse:
             Tokenizer lx = new(input);
-            Parser.Parser ps = new(lx);
-            AST.ASTRoot AST = ps.ParseProgram();
-#if DEBUG
-            if (parser_debug)
+            try
             {
-                lx.Reset();
-                Console.WriteLine("Lexer Output: ".Bold().Yellow());
-                foreach (Token token in lx)
-                    Console.Write($"{{{token.Type}, {token.Literal}, {token.Line}, {token.Column}}} ".Yellow());
-                Console.WriteLine();
-                Console.WriteLine("Parser Output: ".Bold().Green());
-                Console.WriteLine(AST.JOHNSerialize().Green());
-                Console.WriteLine("Reconstructed AST: ".Bold().Blue());
-                Console.WriteLine(AST.ToString().Blue());
-                if (ps.Errors.Length > 0)
+                Parser.Parser ps = new(lx);
+                AST.ASTRoot AST = ps.ParseProgram();
+#if DEBUG
+                if (parser_debug)
                 {
-                    string a = ps.Errors.Select(e => e.ToString().Red()).Aggregate((a, b) => a + "\n" + b);
-                    Console.WriteLine("Errors Encountered: ".Bold().Red());
-                    Console.WriteLine(a);
+                    lx.Reset();
+                    Console.WriteLine("Lexer Output: ".Bold().Yellow());
+                    foreach (Token token in lx)
+                        Console.Write($"{{{token.Type}, {token.Literal}, {token.Line}, {token.Column}}} ".Yellow());
+                    Console.WriteLine();
+                    Console.WriteLine("Parser Output: ".Bold().Green());
+                    Console.WriteLine(AST.JOHNSerialize().Green());
+                    Console.WriteLine("Reconstructed AST: ".Bold().Blue());
+                    Console.WriteLine(AST.ToString().Blue());
+                    if (ps.Errors.Length > 0)
+                    {
+                        string a = ps.Errors.Select(e => e.ToString().Red()).Aggregate((a, b) => a + "\n" + b);
+                        Console.WriteLine("Errors Encountered: ".Bold().Red());
+                        Console.WriteLine(a);
+                    }
+                }
+                Console.WriteLine("Interpreter Output: ".Cyan().Bold());
+#endif
+                try
+                {
+                    IJaneObject output = Interpreter.Interpreter.Eval(AST);
+
+                    Console.WriteLine(output.Inspect()
+#if DEBUG
+                    .Cyan()
+#endif
+                );
+                }
+                catch (RuntimeError e)
+                {
+                    Console.Error.WriteLine(e.Message.Red());
+                }
+                catch (NotImplementedException e)
+                {
+                    Console.Error.WriteLine(e.Message.Red());
                 }
             }
-#endif
-            // JANEValue output = Interpreter.Evaluate(AST);
-            // Console.WriteLine(output);
+            catch (NotImplementedException e)
+            {
+                Console.WriteLine(e.Message.Red());
+                return;
+            }
         }
 
         static int CountNestLevel(Tokenizer t)
         {
-            int level = 0;
-            foreach (Token token in t)
+            try
             {
-                if (token.Type == TokenType.LBRACE) level++;
-                else if (token.Type == TokenType.RBRACE) level--;
+                int level = 0;
+                foreach (Token token in t)
+                {
+                    if (token.Type == TokenType.LBRACE) level++;
+                    else if (token.Type == TokenType.RBRACE) level--;
+                }
+                return level;
             }
-            return level;
+            catch
+            {
+                return 0;
+            }
         }
 
         [GeneratedRegex(@".*[\\]\s*$")]

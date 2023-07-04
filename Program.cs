@@ -2,7 +2,7 @@
 {
     internal class Program
     {
-        static void Main(string[] args)
+        static void Main(string[] _)
         {
             // Dictionary<string, string> params = ParseArguments(args);
             // if (params.HasKey("files")) params["files"].Select(x => Interpreter.ExecuteFile(x));

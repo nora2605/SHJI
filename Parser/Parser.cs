@@ -28,7 +28,7 @@ namespace SHJI.Parser
             { TokenType.MINUS, OperatorPrecedence.SUM },
             { TokenType.ASTERISK, OperatorPrecedence.PRODUCT },
             { TokenType.SLASH, OperatorPrecedence.PRODUCT },
-            //{ TokenType.HAT, OperatorPrecedence.POWER },
+            { TokenType.HAT, OperatorPrecedence.POWER },
             //{ TokenType.AND, OperatorPrecedence.COMPARE },
             //{ TokenType.OR, OperatorPrecedence.COMPARE },
             { TokenType.LTE, OperatorPrecedence.COMPARE },
@@ -69,7 +69,7 @@ namespace SHJI.Parser
             UnaryParseFns = new()
             { 
                 { TokenType.IDENT, ParseIdentifier },
-                { TokenType.ABYSS, ParseIdentifier },
+                { TokenType.ABYSS, ParseAbyss },
                 { TokenType.INT, ParseIntegerLiteral },
                 { TokenType.TRUE, ParseBoolean },
                 { TokenType.FALSE, ParseBoolean },
@@ -89,6 +89,7 @@ namespace SHJI.Parser
                 { TokenType.MINUS, ParseInfixExpression },
                 { TokenType.SLASH, ParseInfixExpression },
                 { TokenType.ASTERISK, ParseInfixExpression },
+                { TokenType.HAT, ParseInfixExpression },
                 { TokenType.EQ, ParseInfixExpression },
                 { TokenType.NOT_EQ, ParseInfixExpression },
                 { TokenType.LT, ParseInfixExpression },
@@ -283,6 +284,13 @@ namespace SHJI.Parser
             }
         }
 
+        IExpression? ParseAbyss()
+        {
+            AST.Abyss abyss = new() { Token = curToken };
+            NextToken();
+            return abyss;
+        }
+
         IExpression? ParseLetExpression()
         {
             LetExpression expression = new() { Token = curToken };
@@ -363,8 +371,11 @@ namespace SHJI.Parser
         IExpression? ParseCallExpression(IExpression? left)
         {
             if (left is null) return null;
-            CallExpression ce = new() { Token = curToken };
-            ce.Function = left;
+            CallExpression ce = new()
+            {
+                Token = curToken,
+                Function = left
+            };
             var args = ParseArguments();
             if (args is null) return null;
             ce.Arguments = args;
