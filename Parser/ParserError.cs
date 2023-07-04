@@ -31,6 +31,6 @@ namespace SHJI.Parser
     {
         Unspecified,
         UnexpectedToken,
-        NoParserFunction
+        Ambiguous
     }
 }

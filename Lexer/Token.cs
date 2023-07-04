@@ -8,6 +8,7 @@ namespace SHJI.Lexer
         EOF,
         EOL,
         IDENT,
+        DOT,
         INT,
         ASSIGN,
         PLUS,
@@ -16,6 +17,10 @@ namespace SHJI.Lexer
         BANG,
         ASTERISK,
         SLASH,
+        DECREMENT,
+        INCREMENT,
+        LTE,
+        GTE,
         LT,
         GT,
         EQ,
@@ -33,7 +38,11 @@ namespace SHJI.Lexer
         IF,
         ELSE,
         RETURN,
-        ABYSS
+        ABYSS,
+        DOUBLEARROW,
+        SINGLEARROW,
+        LSQB,
+        RSQB
     }
 
     public struct Token
@@ -106,6 +115,8 @@ namespace SHJI.Lexer
             { "if", TokenType.IF },
             { "else", TokenType.ELSE },
             { "ret", TokenType.RETURN },
+            { "return", TokenType.RETURN },
+            { "void", TokenType.ABYSS },
             { "abyss", TokenType.ABYSS }
         };
 

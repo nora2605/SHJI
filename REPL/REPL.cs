@@ -16,6 +16,9 @@ namespace SHJI
 
         static bool exiting = false;
         static bool parser_debug = false;
+        static int nestingLevel = 0;
+
+        static string prevInput = "";
 
         public static void Start(bool parser_debug = false)
         {
@@ -31,6 +34,7 @@ namespace SHJI
         {
             Console.Write(PROMPT);
             string? line = Console.ReadLine();
+            string input = "";
             if (line is null or "")
             {
                 return;
@@ -42,23 +46,33 @@ namespace SHJI
                     case "exit":
                         exiting = true;
                         return;
+                    case "repeat":
+                        input = prevInput;
+                        goto Parse;
                     default:
                         Console.WriteLine("Invalid REPL Command. To exit use .exit");
                         return;
                 }
             }
-            string input = RegexReplEndBS().Match(line).Groups["line"].Value;
-            while (RegexIncompleteLine().IsMatch(line))
+            input = RegexReplEndBS().Match(line).Groups["line"].Value;
+            Tokenizer nestChecker = new(input);
+            nestingLevel = CountNestLevel(nestChecker);
+            while (RegexIncompleteLine().IsMatch(line) || nestingLevel > 0)
             {
                 Console.Write(CONTINUE);
                 line = Console.ReadLine();
-                if (line is null) break;
+                if (line is null or "") break;
                 input += $"\n{RegexReplEndBS().Match(line).Groups["line"].Value}";
+                nestChecker = new(input);
+                nestingLevel = CountNestLevel(nestChecker);
             }
 
+            prevInput = input;
+            Parse:
             Tokenizer lx = new(input);
             Parser.Parser ps = new(lx);
             AST.ASTRoot AST = ps.ParseProgram();
+#if DEBUG
             if (parser_debug)
             {
                 lx.Reset();
@@ -70,14 +84,32 @@ namespace SHJI
                 Console.WriteLine(AST.JOHNSerialize().Green());
                 Console.WriteLine("Reconstructed AST: ".Bold().Blue());
                 Console.WriteLine(AST.ToString().Blue());
+                if (ps.Errors.Length > 0)
+                {
+                    string a = ps.Errors.Select(e => e.ToString().Red()).Aggregate((a, b) => a + "\n" + b);
+                    Console.WriteLine("Errors Encountered: ".Bold().Red());
+                    Console.WriteLine(a);
+                }
             }
+#endif
             // JANEValue output = Interpreter.Evaluate(AST);
             // Console.WriteLine(output);
         }
 
-        [GeneratedRegex(@".*\\\s*$")]
+        static int CountNestLevel(Tokenizer t)
+        {
+            int level = 0;
+            foreach (Token token in t)
+            {
+                if (token.Type == TokenType.LBRACE) level++;
+                else if (token.Type == TokenType.RBRACE) level--;
+            }
+            return level;
+        }
+
+        [GeneratedRegex(@".*[\\]\s*$")]
         private static partial Regex RegexIncompleteLine();
-        [GeneratedRegex(@"(?<line>.*)\\\s*$|(?<line>.+$)")]
+        [GeneratedRegex(@"(?<line>.*)[\\]\s*$|(?<line>.+$)")]
         private static partial Regex RegexReplEndBS();
     }
 }

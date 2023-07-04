@@ -15,8 +15,8 @@ namespace SHJI.Parser
     {
         #region statics
         private delegate IExpression? PrefixParseFn();
-        private delegate IExpression? InfixParseFn(IExpression? Left);
-        private delegate IExpression? PostfixParseFn();
+        private delegate IExpression? InfixParseFn(IExpression? left);
+        private delegate IExpression? PostfixParseFn(IExpression? left);
 
         private static readonly Dictionary<TokenType, OperatorPrecedence> priorities = new()
         {
@@ -31,8 +31,11 @@ namespace SHJI.Parser
             //{ TokenType.HAT, OperatorPrecedence.POWER },
             //{ TokenType.AND, OperatorPrecedence.COMPARE },
             //{ TokenType.OR, OperatorPrecedence.COMPARE },
-            //{ TokenType.LTE, OperatorPrecedence.COMPARE },
-            //{ TokenType.GTE, OperatorPrecedence.COMPARE },
+            { TokenType.LTE, OperatorPrecedence.COMPARE },
+            { TokenType.GTE, OperatorPrecedence.COMPARE },
+            { TokenType.INCREMENT, OperatorPrecedence.PREFIX },
+            { TokenType.DECREMENT, OperatorPrecedence.PREFIX },
+            { TokenType.LPAREN, OperatorPrecedence.CALL }
             //{ TokenType.IN, OperatorPrecedence.COMPARE },
             //{ TokenType.LEFT_SHIFT, OperatorPrecedence.BITWISE },
             //{ TokenType.RIGHT_SHIFT, OperatorPrecedence.BITWISE },
@@ -44,7 +47,7 @@ namespace SHJI.Parser
 
         private readonly Dictionary<TokenType, PrefixParseFn> UnaryParseFns;
         private readonly Dictionary<TokenType, InfixParseFn> BinaryParseFns;
-        private readonly Dictionary<TokenType, PostfixParseFn> PostfixParseFns = new();
+        private readonly Dictionary<TokenType, PostfixParseFn> PostfixParseFns;
 
         internal readonly Tokenizer Tokenizer;
         internal static readonly IFormatProvider FormatProvider = new CultureInfo("en-US");
@@ -73,9 +76,11 @@ namespace SHJI.Parser
                 { TokenType.BANG, ParsePrefixExpression },
                 { TokenType.MINUS, ParsePrefixExpression },
                 { TokenType.LPAREN, ParseGroupedExpression },
-                //{ TokenType.BITWISE_NEGATE, ParsePrefixExpression }
-                //{ TokenType.INCR, ParsePrefixExpression }
-                //{ TokenType.DECR, ParsePrefixExpression }
+                { TokenType.IF, ParseIfExpression },
+                { TokenType.LET, ParseLetExpression },
+                //{ TokenType.BITWISE_NEGATE, ParsePrefixExpression },
+                { TokenType.INCREMENT, ParsePrefixExpression },
+                { TokenType.DECREMENT, ParsePrefixExpression },
             };
 
             BinaryParseFns = new()
@@ -87,7 +92,16 @@ namespace SHJI.Parser
                 { TokenType.EQ, ParseInfixExpression },
                 { TokenType.NOT_EQ, ParseInfixExpression },
                 { TokenType.LT, ParseInfixExpression },
-                { TokenType.GT, ParseInfixExpression }
+                { TokenType.GT, ParseInfixExpression },
+                { TokenType.GTE, ParseInfixExpression },
+                { TokenType.LTE, ParseInfixExpression },
+                { TokenType.LPAREN, ParseCallExpression },
+            };
+
+            PostfixParseFns = new()
+            {
+                { TokenType.INCREMENT, ParsePostfixExpression },
+                { TokenType.DECREMENT, ParsePostfixExpression }
             };
         }
 
@@ -114,32 +128,13 @@ namespace SHJI.Parser
 
         IStatement? ParseStatement()
         {
-            return curToken.Type switch
+            while (CurTokenIs(TokenType.SEMICOLON) || CurTokenIs(TokenType.EOL)) NextToken();
+            var statement =  curToken.Type switch
             {
-                TokenType.LET => ParseLetStatement(),
                 TokenType.RETURN => ParseReturnStatement(),
+                TokenType.FUNCTION => ParseFunctionLiteral(),
                 _ => ParseExpressionStatement()
             };
-        }
-        IStatement? ParseLetStatement()
-        {
-            LetStatement statement = new() { Token = curToken };
-            if (!ExpectPeek(TokenType.IDENT))
-            {
-                PeekError(TokenType.IDENT, ParserErrorType.UnexpectedToken);
-                return null;
-            }
-
-            statement.Name = new Identifier() { Token = curToken, Value = curToken.Literal };
-
-            if (!ExpectPeek(TokenType.ASSIGN))
-                return null;
-            NextToken();
-
-            IExpression? e = ParseExpression(OperatorPrecedence.LOWEST);
-            if (e is null) return null;
-            statement.Value = e;
-
             return statement;
         }
 
@@ -147,9 +142,10 @@ namespace SHJI.Parser
         {
             ReturnStatement statement = new() { Token = curToken };
             NextToken();
-            while (!CurTokenIs(TokenType.SEMICOLON) && !CurTokenIs(TokenType.EOL))
-                NextToken();
-
+            if (!UnaryParseFns.ContainsKey(curToken.Type)) return statement;
+            var e = ParseExpression();
+            if (e is null) return null;
+            statement.ReturnValue = e;
             return statement;
         }
 
@@ -160,13 +156,103 @@ namespace SHJI.Parser
             if (e != null) statement.Expression = e;
             else return null;
             if (PeekTokenIs(TokenType.SEMICOLON) || PeekTokenIs(TokenType.EOL))
-                NextToken();
+                NextToken(false);
             return statement;
+        }
+
+        IStatement? ParseFunctionLiteral()
+        {
+            FunctionLiteral literal = new() { Token = curToken };
+
+            List<string> flags = new();
+            while (ExpectPeek(TokenType.MINUS) || ExpectPeek(TokenType.DECREMENT))
+            {
+                if (CurTokenIs(TokenType.MINUS))
+                {
+                    if (ExpectPeek(TokenType.IDENT)) flags.AddRange(curToken.Literal.ToCharArray().Select(x => x.ToString()));
+                }
+                else
+                {
+                    if (ExpectPeek(TokenType.IDENT)) flags.Add(curToken.Literal);
+                }
+            }
+            literal.Flags = flags.ToArray();
+            if (!ExpectPeek(TokenType.IDENT))
+            {
+                return null;
+            }
+            literal.Name = curToken.Literal;
+            if (!ExpectPeek(TokenType.LPAREN))
+            {
+                return null;
+            }
+            var par = ParseFunctionParameters();
+            if (par is null) return null;
+            literal.Parameters = par;
+
+            if (ExpectPeek(TokenType.SINGLEARROW))
+            {
+                NextToken();
+                literal.ReturnType = curToken.Literal;
+            }
+
+            if (ExpectPeek(TokenType.DOUBLEARROW))
+            {
+                NextToken();
+                var exprStatement = ParseExpressionStatement();
+                if (exprStatement is null) return null;
+                literal.Body = new BlockStatement(exprStatement) { Token = curToken };
+            }
+            else if (ExpectPeek(TokenType.LBRACE))
+            {
+                literal.Body = ParseBlockStatement();
+            }
+            else return null;
+
+            return literal;
+        }
+
+        Identifier[]? ParseFunctionParameters()
+        {
+            List<Identifier> parameters = new();
+            if (PeekTokenIs(TokenType.RPAREN))
+            {
+                NextToken();
+                return Array.Empty<Identifier>();
+            }
+            do {
+                NextToken();
+                Identifier? ident = ParseIdentifier() as Identifier?;
+                if (ident is null) return null;
+                parameters.Add((Identifier)ident);
+            } while (ExpectPeek(TokenType.COMMA));
+            if (!ExpectPeek(TokenType.RPAREN)) return null;
+            return parameters.ToArray();
+        }
+
+        BlockStatement ParseBlockStatement()
+        {
+            BlockStatement block = new() { Token = curToken };
+            List<IStatement> statements = new();
+            NextToken();
+            while (!CurTokenIs(TokenType.RBRACE) && !CurTokenIs(TokenType.EOF))
+            {
+                IStatement? statement = ParseStatement();
+                if (statement is null)
+                {
+                    NextToken();
+                    continue;
+                }
+                statements.Add(statement);
+                NextToken();
+            }
+            block.Statements = statements.ToArray();
+            return block;
         }
         #endregion
 
         #region Parse general Expressions
-        IExpression? ParseExpression(OperatorPrecedence precedence)
+        IExpression? ParseExpression(OperatorPrecedence precedence=OperatorPrecedence.LOWEST)
         {
             if (!UnaryParseFns.TryGetValue(curToken.Type, out PrefixParseFn? prefix))
             {
@@ -176,21 +262,50 @@ namespace SHJI.Parser
             else
             {
                 IExpression? left = prefix();
-                while (!PeekTokenIs(TokenType.EOL)  && !PeekTokenIs(TokenType.SEMICOLON) && precedence < PeekPrecedence())
+                while (!PeekTokenIs(TokenType.EOL) && !PeekTokenIs(TokenType.SEMICOLON) && precedence < PeekPrecedence())
                 {
                     if (!BinaryParseFns.TryGetValue(peekToken.Type, out InfixParseFn? infix))
                     {
+                        if (PostfixParseFns.TryGetValue(peekToken.Type, out PostfixParseFn? postfix))
+                        {
+                            NextToken(false);
+                            left = postfix(left);
+                        }
                         return left;
                     }
                     else
                     {
-                        NextToken();
+                        NextToken(false);
                         left = infix(left);
                     }
                 }
                 return left;
             }
         }
+
+        IExpression? ParseLetExpression()
+        {
+            LetExpression expression = new() { Token = curToken };
+            if (!ExpectPeek(TokenType.IDENT))
+            {
+                PeekError(TokenType.IDENT, ParserErrorType.UnexpectedToken);
+                return null;
+            }
+            Identifier? ident = ParseIdentifier() as Identifier?;
+            if (ident is null) return null;
+            expression.Name = (Identifier)ident;
+
+            if (!ExpectPeek(TokenType.ASSIGN))
+                return expression;
+            NextToken();
+
+            IExpression? e = ParseExpression();
+            if (e is null) return null;
+            expression.Value = e;
+
+            return expression;
+        }
+
         IExpression? ParseGroupedExpression()
         {
             NextToken();
@@ -199,7 +314,80 @@ namespace SHJI.Parser
             return expr;
         }
 
-        IExpression? ParseIdentifier() => new Identifier() { Token = curToken, Value = curToken.Literal };
+        IExpression? ParseIfExpression()
+        {
+            IfExpression expr = new() { Token = curToken };
+            bool inParens = ExpectPeek(TokenType.LPAREN);
+            NextToken();
+            IExpression? cond = ParseExpression(OperatorPrecedence.LOWEST);
+            if (cond is null) return null;
+            expr.Condition = cond;
+            if (inParens && !ExpectPeek(TokenType.RPAREN)) return null;
+            bool inBraces = ExpectPeek(TokenType.LBRACE);
+            if (!inParens && !inBraces) errors.Add(new ParserError("Neither providing parens () or braces {} for an if expression is potentially ambiguous. Please enclose either the condition or the block statement", curToken, ParserErrorType.Ambiguous));
+            if (inBraces)
+                expr.Cons = ParseBlockStatement();
+            else
+            {
+                NextToken();
+                var s = ParseStatement();
+                if (s is null) return null;
+                expr.Cons = new BlockStatement(s) { Token = s.Token };
+            }
+            if (ExpectPeek(TokenType.ELSE))
+            {
+                inBraces = ExpectPeek(TokenType.LBRACE);
+                if (inBraces) expr.Alt = ParseBlockStatement();
+                else
+                {
+                    NextToken();
+                    var s = ParseStatement();
+                    if (s is null) expr.Alt = null;
+                    else expr.Alt = new BlockStatement(s) { Token = curToken };
+                }
+            }
+            return expr;
+        }
+
+        IExpression? ParseIdentifier()
+        {
+            Identifier ident = new() { Token = curToken, Value = curToken.Literal };
+            if (ExpectPeek(TokenType.COLON))
+            {
+                ident.Type = peekToken.Literal;
+                NextToken();
+            }
+            return ident;
+        }
+
+        IExpression? ParseCallExpression(IExpression? left)
+        {
+            if (left is null) return null;
+            CallExpression ce = new() { Token = curToken };
+            ce.Function = left;
+            var args = ParseArguments();
+            if (args is null) return null;
+            ce.Arguments = args;
+            return ce;
+        }
+
+        IExpression[]? ParseArguments()
+        {
+            List<IExpression> args = new();
+            if (ExpectPeek(TokenType.RPAREN))
+            {
+                return args.ToArray();
+            }
+            do
+            {
+                NextToken();
+                var e = ParseExpression();
+                if (e is null) return null;
+                args.Add(e);
+            } while (ExpectPeek(TokenType.COMMA));
+            if (!ExpectPeek(TokenType.RPAREN)) return null;
+            return args.ToArray();
+        }
         #endregion
 
         #region Parse Types
@@ -230,10 +418,10 @@ namespace SHJI.Parser
             else return null;
             return prefix;
         }
-        IExpression? ParseInfixExpression(IExpression? Left)
+        IExpression? ParseInfixExpression(IExpression? left)
         {
-            if (Left is null) return null;
-            InfixExpression infix = new() { Token = curToken, Operator = curToken.Literal, Left = Left };
+            if (left is null) return null;
+            InfixExpression infix = new() { Token = curToken, Operator = curToken.Literal, Left = left };
             OperatorPrecedence prec = CurPrecedence();
             NextToken();
             IExpression? e = ParseExpression(prec);
@@ -241,14 +429,23 @@ namespace SHJI.Parser
             else return null;
             return infix;
         }
+
+        IExpression? ParsePostfixExpression(IExpression? left)
+        {
+            if (left is null) return null;
+            PostfixExpression postfix = new() { Token = curToken, Operator = curToken.Literal, Left = left };
+            return postfix;
+        }
         #endregion
 
         #region Helpers
-
-        void NextToken()
+        void NextToken(bool skipEOL = true)
         {
-            curToken = peekToken;
-            peekToken = Tokenizer.NextToken();
+            do
+            {
+                curToken = peekToken;
+                peekToken = Tokenizer.NextToken();
+            } while (skipEOL && CurTokenIs(TokenType.EOL));
         }
         bool CurTokenIs(TokenType type) => curToken.Type == type;
     
@@ -288,7 +485,7 @@ namespace SHJI.Parser
 
         void NoPrefixParseFnError(TokenType type)
         {
-            ParserError pe = new($"No Prefix Parse Function for {type} found", curToken, ParserErrorType.NoParserFunction);
+            ParserError pe = new($"Unexpected {type} found", curToken, ParserErrorType.UnexpectedToken);
             errors.Add(pe);
         }
         #endregion

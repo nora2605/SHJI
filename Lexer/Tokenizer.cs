@@ -45,10 +45,12 @@ namespace SHJI.Lexer
                 case '=':
                     if (PeekChar() == '=')
                     {
-                        char cc = ch;
                         ReadChar();
-                        string Literal = cc.ToString() + ch.ToString();
-                        tok = NewTokenLC(TokenType.EQ, Literal);
+                        tok = NewTokenLC(TokenType.EQ, "==");
+                    }
+                    else if (PeekChar() == '>') {
+                        ReadChar();
+                        tok = NewTokenLC(TokenType.DOUBLEARROW, "=>");
                     }
                     else
                     {
@@ -56,23 +58,35 @@ namespace SHJI.Lexer
                     }
                     break;
                 case '+':
-                    tok = NewTokenLC(TokenType.PLUS, ch); break;
+                    if (PeekChar() == '+')
+                    {
+                        ReadChar();
+                        tok = NewTokenLC(TokenType.INCREMENT, "++");
+                    }
+                    else tok = NewTokenLC(TokenType.PLUS, ch);
+                    break;
                 case ':':
                     tok = NewTokenLC(TokenType.COLON, ch); break;
                 case '-':
-                    tok = NewTokenLC(TokenType.MINUS, ch); break;
+                    if (PeekChar() == '-')
+                    {
+                        ReadChar();
+                        tok = NewTokenLC(TokenType.DECREMENT, "--");
+                    }
+                    else if (PeekChar() == '>')
+                    {
+                        ReadChar();
+                        tok = NewTokenLC(TokenType.SINGLEARROW, "->");
+                    }
+                    else tok = NewTokenLC(TokenType.MINUS, ch);
+                    break;
                 case '!':
                     if (PeekChar() == '=')
                     {
-                        char cc = ch;
                         ReadChar();
-                        string literal = cc.ToString() + ch.ToString();
-                        tok = NewTokenLC(TokenType.NOT_EQ, literal);
+                        tok = NewTokenLC(TokenType.NOT_EQ, "!=");
                     }
-                    else
-                    {
-                        tok = NewTokenLC(TokenType.BANG, ch);
-                    }
+                    else tok = NewTokenLC(TokenType.BANG, ch);
                     break;
                 case '/':
                     tok = NewTokenLC(TokenType.SLASH, ch);
@@ -81,10 +95,20 @@ namespace SHJI.Lexer
                     tok = NewTokenLC(TokenType.ASTERISK, ch);
                     break;
                 case '<':
-                    tok = NewTokenLC(TokenType.LT, ch);
+                    if (PeekChar() == '=')
+                    {
+                        ReadChar();
+                        tok = NewTokenLC(TokenType.LTE, "<=");
+                    }
+                    else tok = NewTokenLC(TokenType.LT, ch);
                     break;
                 case '>':
-                    tok = NewTokenLC(TokenType.GT, ch);
+                    if (PeekChar() == '=')
+                    {
+                        ReadChar();
+                        tok = NewTokenLC(TokenType.GTE, ">=");
+                    }
+                    else tok = NewTokenLC(TokenType.GT, ch);
                     break;
                 case ';':
                     tok = NewTokenLC(TokenType.SEMICOLON, ch);
@@ -104,6 +128,12 @@ namespace SHJI.Lexer
                 case ')':
                     tok = NewTokenLC(TokenType.RPAREN, ch);
                     break;
+                case '[':
+                    tok = NewTokenLC(TokenType.LSQB, ch);
+                    break;
+                case ']':
+                    tok = NewTokenLC(TokenType.RSQB, ch);
+                    break;
                 case '\0':
                     tok = NewTokenLC(TokenType.EOF, "");
                     break;
@@ -112,7 +142,7 @@ namespace SHJI.Lexer
                 default:
                     if (IsLetter(ch))
                     {
-                        string lit = ReadWhile((ch) => IsLetter(ch) || IsDigit(ch));
+                        string lit = ReadWhile((ch) => IsLetter(ch) || IsDigit(ch) || ch == '_' || ch == '-' || ch == '.');
                         tok = new Token(TokenLookup.LookupIdent(lit), lit, line, column - lit.Length);
                         current = tok;
                         return tok;
