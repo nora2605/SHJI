@@ -51,7 +51,7 @@ The following constitutes a list of features that still have to be done:
 * Extension Blocks
 * MOST COMPLICATED TYPE SYSTEM INFER ALGORITHM: (Extendable by Runtime)
 	* Pseudocode
-	* ```
+```
 	InferTypes(BinaryOperator, Type1, Type2?, depth=0) {
 		OperatorDict = OperatorImplementations[BinaryOperator]
 		if (TryGet OperatorDict[(Type1, Type2?)])
