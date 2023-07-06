@@ -50,6 +50,9 @@ namespace SHJI
                     case "repeat":
                         input = prevInput;
                         goto Parse;
+                    case "clear":
+                        Interpreter.Interpreter.environment.Store.Clear();
+                        return;
                     default:
                         Console.WriteLine("Invalid REPL Command. To exit use .exit");
                         return;
@@ -95,6 +98,11 @@ namespace SHJI
                     }
                 }
                 Console.WriteLine("Interpreter Output: ".Cyan().Bold());
+#else
+                if (ps.Errors.Length > 0) {
+                    Console.WriteLine(ps.Errors.Select(e => e.ToString()).Aggregate((a, b) => a + "\n" + b));
+                    return;
+                }
 #endif
                 try
                 {
@@ -102,19 +110,20 @@ namespace SHJI
 
                     Console.WriteLine(output.Inspect()
 #if DEBUG
-                    .Cyan()
+                        .Cyan()
 #endif
-                );
+                    );
                 }
                 catch (RuntimeError e)
                 {
-                    Console.Error.WriteLine(e.Message.Red());
+                    Console.Error.WriteLine($"{e.Message}; at Line {e.Token.Line}, Column {e.Token.Column}".Red());
                 }
                 catch (NotImplementedException e)
                 {
                     Console.Error.WriteLine(e.Message.Red());
                 }
             }
+            // Tokenizer :(
             catch (NotImplementedException e)
             {
                 Console.WriteLine(e.Message.Red());

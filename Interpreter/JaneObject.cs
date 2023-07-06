@@ -1,13 +1,11 @@
-﻿using System.Numerics;
-using System.Runtime.InteropServices.ObjectiveC;
-
-namespace SHJI.Interpreter
+﻿namespace SHJI.Interpreter
 {
     internal interface IJaneObject
     {
         public readonly static IJaneObject JANE_ABYSS = new JaneAbyss();
         public readonly static IJaneObject JANE_TRUE = new JaneBool() { Value = true };
         public readonly static IJaneObject JANE_FALSE = new JaneBool() { Value = false };
+        public readonly static IJaneObject JANE_UNINITIALIZED = new JaneAbyss(false);
 
         public ObjectType Type();
         public string Inspect();
@@ -146,12 +144,16 @@ namespace SHJI.Interpreter
 
     internal struct JaneAbyss : IJaneObject
     {
+        public bool init;
+        public JaneAbyss(bool init = true)
+        {
+            this.init = init;
+        }
         public readonly ObjectType Type() => ObjectType.Abyss;
         public readonly string Inspect() => "abyss";
     }
     #endregion
 
-    // Also defines precedence of accuracy
     internal enum ObjectType
     {
         Abyss,
@@ -170,5 +172,9 @@ namespace SHJI.Interpreter
         Float64,
         Char,
         String,
+        Function,
+        Tuple,
+        Array,
+        Object
     }
 }

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SHJI.Lexer;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,7 +9,13 @@ namespace SHJI.Interpreter
 {
     internal class RuntimeError : Exception
     {
+        public Token Token { get; set; }
+
         public RuntimeError() { }
         public RuntimeError(string message) : base(message) { }
+        public RuntimeError(string message, Token token) : base(message)
+        {
+            this.Token = token;
+        }
     }
 }

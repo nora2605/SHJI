@@ -12,6 +12,7 @@ namespace SHJI.AST
     internal struct ASTRoot : IASTNode
     {
         public IStatement[] statements;
+        public Token Token { get;  set; }
 
         public readonly string TokenLiteral()
         {
@@ -156,6 +157,27 @@ namespace SHJI.AST
 
         public readonly string TokenLiteral() => Token.Literal;
         public override readonly string ToString() => $"if {Condition} {Cons} {(Alt is null ? "" : $"else {Alt}")}";
+    }
+
+    internal struct Assignment : IExpression
+    {
+        public Token Token { get; set; }
+        public Identifier Name;
+        public IExpression Value;
+
+        public readonly string TokenLiteral() => Token.Literal;
+        public override readonly string ToString() => $"{Name} = {Value}";
+    }
+
+    internal struct ForLoop : IStatement
+    {
+        public Token Token { get; set; }
+        public Identifier Iterator;
+        public IExpression Enumerable;
+        public BlockStatement LoopContent;
+
+        public readonly string TokenLiteral() => Token.Literal;
+        public override readonly string ToString() => $"for let {Iterator} in {Enumerable} {LoopContent}";
     }
 
     internal struct Ternary : IExpression

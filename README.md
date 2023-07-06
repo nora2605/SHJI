@@ -24,6 +24,22 @@ It's a simple Tree-Walking interpreter. There is no pre-optimization. This might
 
 The following constitutes a list of features that still have to be done:
 
+### General
+
+* Operators:
+	* Switcheroo operator: switches a bool from true to false or false to true (postfix !!)
+	* Modulo
+	* Binary arithmetic
+	* Boolean arithmetic
+	* Pufferfish
+	* Type coercion
+	* Range Operator
+* Type Parsing:
+	* Number suffixes
+	* Floating Points
+	* strings
+	* characters
+
 ### Parser
 
 * Parse Lambda expressions

@@ -10,17 +10,15 @@ namespace SHJI.AST
 {
     internal interface IStatement : IASTNode
     {
-        public Token Token { get; set; }
     }
     internal interface IExpression : IASTNode
     {
-        public Token Token { get; set; }
     }
 
     internal struct BlockStatement : IASTNode
     {
         public IStatement[] Statements;
-        public Token Token;
+        public Token Token { get; set; }
 
         public BlockStatement(IStatement single)
         {
@@ -34,6 +32,7 @@ namespace SHJI.AST
     internal interface IASTNode
     {
         public string TokenLiteral();
+        public Token Token { get; set; }
         public string ToString() => TokenLiteral();
 
         public string JOHNSerialize() {

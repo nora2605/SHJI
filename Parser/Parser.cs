@@ -16,6 +16,7 @@ namespace SHJI.Parser
         {
             { TokenType.EQ, OperatorPrecedence.EQUALS },
             { TokenType.NOT_EQ, OperatorPrecedence.EQUALS },
+            { TokenType.ASSIGN, OperatorPrecedence.EQUALS },
             { TokenType.LT, OperatorPrecedence.COMPARE },
             { TokenType.GT, OperatorPrecedence.COMPARE },
             { TokenType.PLUS, OperatorPrecedence.SUM },
@@ -74,7 +75,7 @@ namespace SHJI.Parser
                 { TokenType.LET, ParseLetExpression },
                 //{ TokenType.BITWISE_NEGATE, ParsePrefixExpression },
                 { TokenType.INCREMENT, ParsePrefixExpression },
-                { TokenType.DECREMENT, ParsePrefixExpression },
+                { TokenType.DECREMENT, ParsePrefixExpression }
             };
 
             BinaryParseFns = new()
@@ -91,6 +92,7 @@ namespace SHJI.Parser
                 { TokenType.GTE, ParseInfixExpression },
                 { TokenType.LTE, ParseInfixExpression },
                 { TokenType.LPAREN, ParseCallExpression },
+                { TokenType.ASSIGN, ParseAssignment }
             };
 
             PostfixParseFns = new()
@@ -107,7 +109,7 @@ namespace SHJI.Parser
         /// <returns>The AST of the Program</returns>
         public ASTRoot ParseProgram()
         {
-            ASTRoot program = new();
+            ASTRoot program = new() { Token = curToken };
             List<IStatement> statements = new();
             program.statements = Array.Empty<IStatement>();
             while (curToken.Type != TokenType.EOF)
@@ -128,9 +130,54 @@ namespace SHJI.Parser
             {
                 TokenType.RETURN => ParseReturnStatement(),
                 TokenType.FUNCTION => ParseFunctionLiteral(),
+                TokenType.FOR => ParseForLoop(),
                 _ => ParseExpressionStatement()
             };
             return statement;
+        }
+
+        IExpression? ParseAssignment(IExpression? left)
+        {
+            if (left is null or not Identifier) return null;
+            Assignment ass = new() { Token = curToken, Name = (Identifier)left };
+            NextToken();
+            IExpression? e = ParseExpression();
+            if (e is not null) ass.Value = e;
+            else return null;
+            return ass;
+        }
+
+        IStatement? ParseForLoop()
+        {
+            ForLoop loop = new() { Token = curToken };
+            if (!ExpectPeek(TokenType.LET))
+            {
+                return null;
+            }
+            NextToken();
+            var e = ParseIdentifier();
+            if (e is null) return null;
+            loop.Iterator = (Identifier)e;
+            if (!ExpectPeek(TokenType.IN))
+            {
+                return null;
+            }
+            NextToken();
+            e = ParseExpression();
+            if (e is null) return null;
+            loop.Enumerable = e;
+            if (!ExpectPeek(TokenType.LBRACE))
+            {
+                var s = ParseStatement();
+                if (s is null) return null;
+                loop.LoopContent = new BlockStatement(s);
+            }
+            else
+            {
+                loop.LoopContent = ParseBlockStatement();
+            }
+
+            return loop;
         }
 
         IStatement? ParseReturnStatement()
@@ -429,6 +476,7 @@ namespace SHJI.Parser
             InfixExpression infix = new() { Token = curToken, Operator = curToken.Literal, Left = left };
             OperatorPrecedence prec = CurPrecedence();
             NextToken();
+            // Something something var += ...
             IExpression? e = ParseExpression(prec);
             if (e is not null) infix.Right = e;
             else return null;
