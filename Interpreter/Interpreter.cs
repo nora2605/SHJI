@@ -10,76 +10,104 @@ namespace SHJI.Interpreter
 
         internal static bool returning = false;
         internal static Token processingToken;
-        internal static JaneEnvironment environment = new();
 
-        internal static IJaneObject Eval(IASTNode node)
+        internal static IJaneObject Eval(IASTNode node, JaneEnvironment env)
         {
             processingToken = node.Token;
             IJaneObject result = node switch
             {
                 // Statements
-                ASTRoot r => EvalProgram(r.statements),
-                ExpressionStatement es => Eval(es.Expression),
-                ForLoop fl => EvalForLoop(fl),
-                ReturnStatement rs => rs.ReturnValue is null ? JANE_ABYSS : Eval(rs.ReturnValue),
+                ASTRoot r => EvalProgram(r.statements, env),
+                ExpressionStatement es => Eval(es.Expression, env),
+                ReturnStatement rs => rs.ReturnValue is null ? JANE_ABYSS : Eval(rs.ReturnValue, env),
                 // Expressions
                 IntegerLiteral il => new JaneInt() { Value = il.Value },
                 AST.Boolean b => b.Value ? JANE_TRUE : JANE_FALSE,
-                PrefixExpression pex => EvalPrefixExpression(pex),
-                InfixExpression inf => EvalInfixExpression(inf),
-                BlockStatement s => EvalStatements(s.Statements),
-                IfExpression ife => EvalIfExpression(ife),
-                LetExpression le => EvalLetExpression(le),
-                Identifier id => EvalIdentifier(id),
-                Assignment ass => EvalAssignment(ass),
+                PrefixExpression pex => EvalPrefixExpression(pex, env),
+                InfixExpression inf => EvalInfixExpression(inf, env),
+                BlockStatement s => EvalStatements(s.Statements, env),
+                IfExpression ife => EvalIfExpression(ife, env),
+                LetExpression le => EvalLetExpression(le, env),
+                Identifier id => EvalIdentifier(id, env),
+                Assignment ass => EvalAssignment(ass, env),
+                FunctionLiteral fl => EvalFunctionLiteral(fl, env),
+                CallExpression ce => EvalCallExpression(ce, env),
                 _ => JANE_ABYSS,
             };
             return result;
         }
 
-        internal static IJaneObject EvalForLoop(ForLoop fl)
+        internal static IJaneObject EvalCallExpression(CallExpression ce, JaneEnvironment env)
         {
-            var en = Eval(fl.Enumerable);
-            // Don't care
-            for (int i = 0; i < 100; i++)
-            {
-                environment[fl.Iterator.Value] = new JaneInt { Value = i };
-                Eval(fl.LoopContent);
-            }
-
-            // Clean env
-            return JANE_ABYSS;
+            var function = Eval(ce.Function, env);
+            if (function is not JaneFunction) throw new RuntimeError($"Cannot perform call on Object of Type {function.Type()}", processingToken);
+            var args = EvalExpressions(ce.Arguments, env);
+            return ApplyFunction((JaneFunction)function, args);
         }
 
-        internal static IJaneObject EvalAssignment(Assignment ass)
+        internal static IJaneObject ApplyFunction(JaneFunction func, IJaneObject[] args)
         {
-            var expr = Eval(ass.Value);
-            environment[ass.Name.Value] = expr;
+            var extendedEnv = ExtendFunctionEnv(func, args);
+            var evaluated = EvalFunction(func.Body.Statements, extendedEnv);
+            return evaluated;
+        }
+
+        internal static JaneEnvironment ExtendFunctionEnv(JaneFunction func, IJaneObject[] args)
+        {
+            JaneEnvironment env = new(func.Environment);
+            for (int i = 0; i < func.Parameters.Length; i++)
+            {
+                var param = func.Parameters[i];
+                env.Set(param.Value, args[i]);
+            }
+            return env;
+        }
+
+        internal static IJaneObject[] EvalExpressions(IExpression[] exps, JaneEnvironment env)
+        {
+            List<IJaneObject> result = new();
+            for (var i = 0; i < exps.Length; i++)
+            {
+                result.Add(Eval(exps[i], env));
+            }
+            return result.ToArray();
+        }
+
+        internal static IJaneObject EvalFunctionLiteral(FunctionLiteral fl, JaneEnvironment env)
+        {
+            env[fl.Name] = new JaneFunction { Flags = fl.Flags, Parameters = fl.Parameters, Body = fl.Body, Environment = env, ReturnType = fl.ReturnType, Name = fl.Name };
+            return env[fl.Name];
+        }
+
+        internal static IJaneObject EvalAssignment(Assignment ass, JaneEnvironment env)
+        {
+            var expr = Eval(ass.Value, env);
+            env[ass.Name.Value] = expr;
             return expr;
         }
 
-        internal static IJaneObject EvalLetExpression(LetExpression le)
+        internal static IJaneObject EvalLetExpression(LetExpression le, JaneEnvironment env)
         {
-            if (environment.Has(le.Name.Value)) throw new RuntimeError($"Variable name already in use. Use .clear to clear the environment");
-            IJaneObject val = le.Value is null ? JANE_UNINITIALIZED : Eval(le.Value);
-            environment.Set(le.Name.Value, val);
+            if (env.Has(le.Name.Value)) throw new RuntimeError($"Variable name already in use. Use .clear to clear the environment");
+            IJaneObject val = le.Value is null ? JANE_UNINITIALIZED : Eval(le.Value, env);
+            env.Set(le.Name.Value, val);
             return val;
         }
 
-        internal static IJaneObject EvalIdentifier(Identifier id)
+        internal static IJaneObject EvalIdentifier(Identifier id, JaneEnvironment env)
         {
-            var e = environment.Get(id.Value);
+            var e = env.Get(id.Value);
             if (e == JANE_UNINITIALIZED)
                 throw new RuntimeError($"Variable \"{id.Value}\" was uninitialized or not found at access time", processingToken);
             return e;
         }
 
-        internal static IJaneObject EvalProgram(IStatement[] stmts)
+        internal static IJaneObject EvalProgram(IStatement[] stmts, JaneEnvironment env)
         {
             IJaneObject result = JANE_ABYSS;
             foreach (IStatement stmt in stmts)
             {
-                result = Eval(stmt);
+                result = Eval(stmt, env);
                 if (stmt is ReturnStatement || returning)
                 {
                     returning = false;
@@ -92,29 +120,27 @@ namespace SHJI.Interpreter
             return result;
         }
 
-        internal static IJaneObject EvalFunction(IStatement[] stmts)
+        internal static IJaneObject EvalFunction(IStatement[] stmts, JaneEnvironment env)
         {
             IJaneObject result = JANE_ABYSS;
             foreach (IStatement stmt in stmts)
             {
-                result = Eval(stmt);
+                result = Eval(stmt, env);
                 if (stmt is ReturnStatement || returning)
                 {
                     returning = false;
                     break;
                 }
             }
-
-            // Clean up env
             return result;
         }
 
-        internal static IJaneObject EvalStatements(IStatement[] stmts)
+        internal static IJaneObject EvalStatements(IStatement[] stmts, JaneEnvironment env)
         {
             IJaneObject result = JANE_ABYSS;
             foreach (IStatement stmt in stmts)
             {
-                result = Eval(stmt);
+                result = Eval(stmt, env);
                 if (stmt is ReturnStatement)
                 {
                     returning = true;
@@ -128,20 +154,20 @@ namespace SHJI.Interpreter
             return result;
         }
 
-        internal static IJaneObject EvalIfExpression(IfExpression ife)
+        internal static IJaneObject EvalIfExpression(IfExpression ife, JaneEnvironment env)
         {
-            IJaneObject cond = Eval(ife.Condition);
+            IJaneObject cond = Eval(ife.Condition, env);
             if (cond is JaneBool jb)
             {
-                if (jb.Value) return Eval(ife.Cons);
-                else return ife.Alt is null ? JANE_ABYSS : Eval(ife.Alt);
+                if (jb.Value) return Eval(ife.Cons, new(env));
+                else return ife.Alt is null ? JANE_ABYSS : Eval(ife.Alt, new(env));
             }
             else throw new RuntimeError("Condition is not a Boolean", processingToken);
         }
 
-        internal static IJaneObject EvalPrefixExpression(PrefixExpression prefixExpression)
+        internal static IJaneObject EvalPrefixExpression(PrefixExpression prefixExpression, JaneEnvironment env)
         {
-            IJaneObject right = Eval(prefixExpression.Right);
+            IJaneObject right = Eval(prefixExpression.Right, env);
             return prefixExpression.Operator switch
             {
                 "!" => EvalBangPrefixOperator(right),
@@ -150,10 +176,10 @@ namespace SHJI.Interpreter
             };
         }
 
-        internal static IJaneObject EvalInfixExpression(InfixExpression e)
+        internal static IJaneObject EvalInfixExpression(InfixExpression e, JaneEnvironment env)
         {
-            IJaneObject left = Eval(e.Left);
-            IJaneObject right = Eval(e.Right);
+            IJaneObject left = Eval(e.Left, env);
+            IJaneObject right = Eval(e.Right, env);
 
             // Insert type magic
 
@@ -164,7 +190,7 @@ namespace SHJI.Interpreter
 
             // Full list of (infix) operators TO BE IMPLEMENTED as of July 2023:
             // +, -, *, /, ^, %, >, <, >=, <=, ==, !=, &&, ||, xor
-            // ~, &, |, x0r (binary xor), .. (range operator), ?????? (up to debate, type coercion), :: (pufferfish operator, chains outer function calls)
+            // ~, &, |, x0r (binary xor), .. (range operator), :: (type coercion), :. (pufferfish operator, chains outer function calls)
 
             // Except for the type coercion and pufferfish operator, the operator behavior can be individually adjusted for every user defined type
 

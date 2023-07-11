@@ -1,4 +1,6 @@
-﻿namespace SHJI.Interpreter
+﻿using System.Xml.Linq;
+
+namespace SHJI.Interpreter
 {
     internal interface IJaneObject
     {
@@ -11,6 +13,19 @@
         public string Inspect();
 
         public string? ToString() => Inspect(); 
+    }
+
+    internal struct JaneFunction : IJaneObject
+    {
+        public string Name;
+        public AST.Identifier[] Parameters;
+        public string[] Flags;
+        public AST.BlockStatement Body;
+        public string ReturnType;
+        public JaneEnvironment Environment;
+
+        public readonly ObjectType Type() => ObjectType.Function;
+        public readonly string Inspect() => $"fn {(Flags.Length == 0 ? "" : Flags.Select(x => x.Length == 1 ? $"-{x} " : $"--{x} ").Aggregate((a, b) => a + b))}{Name} ({Parameters.Select(x => x.ToString()).Aggregate((a, b) => $"{a}, {b}")}){(ReturnType is null ? "" : $" -> {ReturnType}")} {Body}";
     }
 
     #region Integer Types
@@ -175,6 +190,8 @@
         Function,
         Tuple,
         Array,
-        Object
+        Struct,
+        Interface,
+        Class
     }
 }

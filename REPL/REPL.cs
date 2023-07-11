@@ -16,15 +16,24 @@ namespace SHJI
         const string CONTINUE = "..> ";
 
         static bool exiting = false;
-        static bool parser_debug = false;
+        static bool parserDebug = false;
         static int nestingLevel = 0;
+        static bool controlKeyPressed = false;
 
         static string prevInput = "";
+        static JaneEnvironment env = new();
 
         public static void Start(bool parser_debug = false)
         {
-            REPL.parser_debug = parser_debug;
+            parserDebug = parser_debug;
             Console.WriteLine(HEADER);
+            Console.CancelKeyPress += (sender, e) =>
+            {
+                exiting = true;
+                Console.WriteLine("\nPress Ctrl-C again or Enter to exit the REPL.");
+                Console.Write(PROMPT);
+                e.Cancel = true;
+            };
             while (!exiting)
             {
                 REP();
@@ -33,11 +42,12 @@ namespace SHJI
 
         static void REP()
         {
-            Console.Write(PROMPT);
+            if (!controlKeyPressed) Console.Write(PROMPT);
             string? line = Console.ReadLine();
             string input = "";
             if (line is null or "")
             {
+                controlKeyPressed = line is null;
                 return;
             }
             if (line.StartsWith('.'))
@@ -51,19 +61,21 @@ namespace SHJI
                         input = prevInput;
                         goto Parse;
                     case "clear":
-                        Interpreter.Interpreter.environment.Store.Clear();
+                        env.Store.Clear();
                         return;
                     default:
                         Console.WriteLine("Invalid REPL Command. To exit use .exit");
                         return;
                 }
             }
+            exiting = false;
             input = RegexReplEndBS().Match(line).Groups["line"].Value;
             Tokenizer nestChecker = new(input);
             nestingLevel = CountNestLevel(nestChecker);
             while (RegexIncompleteLine().IsMatch(line) || nestingLevel > 0)
             {
                 Console.Write(CONTINUE);
+                if (line.Contains("@\"")) Console.Write("(Verbatim Strings might not work correctly in the REPL)>".Yellow().Italic());
                 line = Console.ReadLine();
                 if (line is null or "") break;
                 input += $"\n{RegexReplEndBS().Match(line).Groups["line"].Value}";
@@ -74,60 +86,80 @@ namespace SHJI
             prevInput = input;
             Parse:
             Tokenizer lx = new(input);
-            try
-            {
-                Parser.Parser ps = new(lx);
-                AST.ASTRoot AST = ps.ParseProgram();
+            Parser.Parser ps = new(lx);
+            AST.ASTRoot AST = ps.ParseProgram();
 #if DEBUG
-                if (parser_debug)
+            if (parserDebug)
+            {
+                lx.Reset();
+                Console.WriteLine("Lexer Output: ".Bold().Yellow());
+                foreach (Token token in lx)
+                    Console.Write($"{{{token.Type}, {token.Literal}, {token.Line}, {token.Column}}} ".Yellow());
+                Console.WriteLine();
+                Console.WriteLine("Parser Output: ".Bold().Green());
+                Console.WriteLine(AST.JOHNSerialize().Green());
+                Console.WriteLine("Reconstructed AST: ".Bold().Blue());
+                Console.WriteLine(AST.ToString().Blue());
+                if (ps.Errors.Length > 0)
                 {
-                    lx.Reset();
-                    Console.WriteLine("Lexer Output: ".Bold().Yellow());
-                    foreach (Token token in lx)
-                        Console.Write($"{{{token.Type}, {token.Literal}, {token.Line}, {token.Column}}} ".Yellow());
-                    Console.WriteLine();
-                    Console.WriteLine("Parser Output: ".Bold().Green());
-                    Console.WriteLine(AST.JOHNSerialize().Green());
-                    Console.WriteLine("Reconstructed AST: ".Bold().Blue());
-                    Console.WriteLine(AST.ToString().Blue());
-                    if (ps.Errors.Length > 0)
-                    {
-                        string a = ps.Errors.Select(e => e.ToString().Red()).Aggregate((a, b) => a + "\n" + b);
-                        Console.WriteLine("Errors Encountered: ".Bold().Red());
-                        Console.WriteLine(a);
-                    }
+                    string a = ps.Errors.Select(e => e.ToString().Red()).Aggregate((a, b) => a + "\n" + b);
+                    Console.WriteLine("Errors Encountered: ".Bold().Red());
+                    Console.WriteLine(a);
                 }
-                Console.WriteLine("Interpreter Output: ".Cyan().Bold());
+            }
+            Console.WriteLine("Interpreter Output: ".Cyan().Bold());
 #else
                 if (ps.Errors.Length > 0) {
                     Console.WriteLine(ps.Errors.Select(e => e.ToString()).Aggregate((a, b) => a + "\n" + b));
                     return;
                 }
 #endif
-                try
-                {
-                    IJaneObject output = Interpreter.Interpreter.Eval(AST);
+            try
+            {
+                IJaneObject output = IJaneObject.JANE_UNINITIALIZED;
+                Exception? e = null;
+                // 256 MB of stack size so i don't have to deal with anything and i'll leave it to the OS like a true evil person
+                Thread it = new(new ThreadStart(() => {
+                    try
+                    {
+                        output = Interpreter.Interpreter.Eval(AST, env);
+                    }
+                    catch (Exception ex)
+                    {
+                        e = ex;
+                    }
+                }), 0b1000000000000000000000000000);
 
-                    Console.WriteLine(output.Inspect()
+                it.Start();
+                it.Join(2000);
+                if (it.IsAlive)
+                {
+                    Console.Write($"Welp you seem to have given it some tough prompt... ");
 #if DEBUG
-                        .Cyan()
+                    Console.WriteLine();
+                    Console.WriteLine($"{it.GetApartmentState()}");
 #endif
-                    );
+                    it.Join();
                 }
-                catch (RuntimeError e)
-                {
-                    Console.Error.WriteLine($"{e.Message}; at Line {e.Token.Line}, Column {e.Token.Column}".Red());
-                }
-                catch (NotImplementedException e)
-                {
-                    Console.Error.WriteLine(e.Message.Red());
-                }
+                if (output == IJaneObject.JANE_UNINITIALIZED) throw e ?? new Exception("uh...");
+
+                Console.WriteLine(output.Inspect()
+#if DEBUG
+                    .Cyan()
+#endif
+                );
             }
-            // Tokenizer :(
+            catch (RuntimeError e)
+            {
+                Console.Error.WriteLine($"{e.Message}; at Line {e.Token.Line}, Column {e.Token.Column}".Red());
+            }
             catch (NotImplementedException e)
             {
-                Console.WriteLine(e.Message.Red());
-                return;
+                Console.Error.WriteLine(e.Message.Red());
+            }
+            catch (Exception e)
+            {
+                Console.Error.WriteLine(e.Message);
             }
         }
 

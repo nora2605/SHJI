@@ -45,7 +45,20 @@ namespace SHJI.Lexer
         RSQB,
         HAT,
         FOR,
-        IN
+        IN,
+        ACCESSOR,
+        AT,
+        VERBATIM_STRING,
+        DOUBLEQUOTE,
+        SINGLEQUOTE,
+        COERCER,
+        CHAR_CONTENT,
+        FLOAT,
+        RANGE,
+        RAW_DOUBLEQUOTE,
+        STRING_CONTENT,
+        VERBATIM_INTERPOLATED_STRING,
+        LINTERPOLATE
     }
 
     public struct Token
@@ -123,7 +136,9 @@ namespace SHJI.Lexer
             { "abyss", TokenType.ABYSS },
             { "null", TokenType.ABYSS },
             { "for", TokenType.FOR },
-            { "in", TokenType.IN }
+            { "in", TokenType.IN },
+            { "raw\"", TokenType.RAW_DOUBLEQUOTE },
+            { "r\"", TokenType.RAW_DOUBLEQUOTE }
         };
 
         public static TokenType LookupIdent(string ident)

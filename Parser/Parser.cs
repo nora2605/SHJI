@@ -17,6 +17,7 @@ namespace SHJI.Parser
             { TokenType.EQ, OperatorPrecedence.EQUALS },
             { TokenType.NOT_EQ, OperatorPrecedence.EQUALS },
             { TokenType.ASSIGN, OperatorPrecedence.EQUALS },
+            { TokenType.COMMA, OperatorPrecedence.TUPLE },
             { TokenType.LT, OperatorPrecedence.COMPARE },
             { TokenType.GT, OperatorPrecedence.COMPARE },
             { TokenType.PLUS, OperatorPrecedence.SUM },
@@ -37,6 +38,9 @@ namespace SHJI.Parser
             //{ TokenType.BITWISE_AND, OperatorPrecedence.BITWISE },
             //{ TokenType.BITWISE_OR, OperatorPrecedence.BITWISE },
             //{ TokenType.XOR, OperatorPrecedence.BITWISE }
+            // BITWISE NAND => "nand"
+            // BITWISE NOR => "nor"
+            // BITWISE NXOR => "nxor"
         };
 
 
@@ -92,7 +96,8 @@ namespace SHJI.Parser
                 { TokenType.GTE, ParseInfixExpression },
                 { TokenType.LTE, ParseInfixExpression },
                 { TokenType.LPAREN, ParseCallExpression },
-                { TokenType.ASSIGN, ParseAssignment }
+                { TokenType.ASSIGN, ParseAssignment },
+                // { TokenType.COMMA, ParseTuple }
             };
 
             PostfixParseFns = new()
@@ -545,14 +550,15 @@ namespace SHJI.Parser
     }
     internal enum OperatorPrecedence
     {
-        LOWEST = -1,
-        EQUALS = 0,
-        COMPARE = 1,
-        BITWISE = 2,
-        SUM = 3,
-        PRODUCT = 4,
-        PREFIX = 5,
-        POWER = 6,
-        CALL = 7
+        LOWEST,
+        TUPLE,
+        EQUALS,
+        COMPARE,
+        BITWISE,
+        SUM,
+        PRODUCT,
+        PREFIX,
+        POWER,
+        CALL
     }
 }

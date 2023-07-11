@@ -43,7 +43,7 @@ The following constitutes a list of features that still have to be done:
 ### Parser
 
 * Parse Lambda expressions
-* Parse Interpolated strings
+* Parse Interpolated strings (TOKENIZER WORKS)
 * Parse Array Literals, Object Literals and Tuples
 * Parse different number types
 * Strings

@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "SHJI": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    }
+  }
+}

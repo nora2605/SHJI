@@ -63,7 +63,7 @@ namespace SHJI.AST
         public string ReturnType;
         public BlockStatement Body;
         public readonly string TokenLiteral() => Token.Literal;
-        public readonly override string ToString() => $"{TokenLiteral()} {(Flags.Length == 0 ? "" : Flags.Select(x => $"-{x} ").Aggregate((a, b) => a + b))}{Name}({Parameters.Select(x => x.ToString()).Aggregate((a, b) => $"{a}, {b}")}){(ReturnType is null ? "" : $" -> {ReturnType}")} {Body}";
+        public readonly override string ToString() => $"{TokenLiteral()} {(Flags.Length == 0 ? "" : Flags.Select(x => x.Length == 1 ? $"-{x} " : $"--{x} ").Aggregate((a, b) => a + b))}{Name}({Parameters.Select(x => x.ToString()).Aggregate((a, b) => $"{a}, {b}")}){(ReturnType is null ? "" : $" -> {ReturnType}")} {Body}";
     }
 
     internal struct ReturnStatement : IStatement
@@ -178,19 +178,6 @@ namespace SHJI.AST
 
         public readonly string TokenLiteral() => Token.Literal;
         public override readonly string ToString() => $"for let {Iterator} in {Enumerable} {LoopContent}";
-    }
-
-    internal struct Ternary : IExpression
-    {
-        public Token Token { get; set; }
-        public IExpression Condition;
-        public IExpression TruePart;
-        public IExpression FalsePart;
-        public string TokenLiteral()
-        {
-            throw new NotImplementedException();
-        }
-        public override readonly string ToString() => $"{Condition} ? {TruePart} : {FalsePart}";
     }
 
     internal struct Abyss : IExpression
