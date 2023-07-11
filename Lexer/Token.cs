@@ -58,7 +58,8 @@ namespace SHJI.Lexer
         RAW_DOUBLEQUOTE,
         STRING_CONTENT,
         VERBATIM_INTERPOLATED_STRING,
-        LINTERPOLATE
+        LINTERPOLATE,
+        CONCAT
     }
 
     public struct Token

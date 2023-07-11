@@ -75,7 +75,6 @@ namespace SHJI
             while (RegexIncompleteLine().IsMatch(line) || nestingLevel > 0)
             {
                 Console.Write(CONTINUE);
-                if (line.Contains("@\"")) Console.Write("(Verbatim Strings might not work correctly in the REPL)>".Yellow().Italic());
                 line = Console.ReadLine();
                 if (line is null or "") break;
                 input += $"\n{RegexReplEndBS().Match(line).Groups["line"].Value}";
@@ -143,7 +142,7 @@ namespace SHJI
                 }
                 if (output == IJaneObject.JANE_UNINITIALIZED) throw e ?? new Exception("uh...");
 
-                Console.WriteLine(output.Inspect()
+                if (output != IJaneObject.JANE_ABYSS) Console.WriteLine(output.Inspect()
 #if DEBUG
                     .Cyan()
 #endif

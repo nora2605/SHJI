@@ -1,5 +1,6 @@
 ﻿using SHJI.AST;
 using SHJI.Lexer;
+using System.Runtime.CompilerServices;
 using static SHJI.Interpreter.IJaneObject;
 
 namespace SHJI.Interpreter
@@ -21,8 +22,27 @@ namespace SHJI.Interpreter
                 ExpressionStatement es => Eval(es.Expression, env),
                 ReturnStatement rs => rs.ReturnValue is null ? JANE_ABYSS : Eval(rs.ReturnValue, env),
                 // Expressions
+
+                // TODO: Immediate coalescions for integer literals
+                // INumberLiteral l => EvalNumber(),
                 IntegerLiteral il => new JaneInt() { Value = il.Value },
+                LongLiteral il => new JaneLong() { Value = il.Value },
+                Int128Literal il => new JaneInt128() { Value = il.Value },
+                UInt128Literal il => new JaneUInt128() { Value = il.Value },
+                FloatLiteral fl => new JaneDouble() { Value = fl.Value },
+
                 AST.Boolean b => b.Value ? JANE_TRUE : JANE_FALSE,
+                RawStringLiteral s => new JaneString { Value = System.Text.RegularExpressions.Regex.Unescape(s.EscapedValue) },
+                VerbatimStringLiteral s => new JaneString { Value = System.Text.RegularExpressions.Regex.Unescape(s.EscapedValue) },
+                InterpolatedStringLiteral s => EvalInterpolatedString(s, env),
+                InterpolatedVerbatimStringLiteral s => EvalIntVerbString(s, env),
+                Interpolation e => Eval(e.Content, env),
+                AST.StringContent c => new JaneString { Value = System.Text.RegularExpressions.Regex.Unescape(c.EscapedValue) },
+                CharLiteral c => new JaneChar { Value = System.Text.RegularExpressions.Regex.Unescape(c.Value).Length == 1 ? System.Text.RegularExpressions.Regex.Unescape(c.Value)[0] : '\0' },
+
+                ArrayLiteral a => EvalArray(a, env),
+                IndexingExpression ie => EvalIndexing(ie, env),
+
                 PrefixExpression pex => EvalPrefixExpression(pex, env),
                 InfixExpression inf => EvalInfixExpression(inf, env),
                 BlockStatement s => EvalStatements(s.Statements, env),
@@ -37,12 +57,43 @@ namespace SHJI.Interpreter
             return result;
         }
 
+        internal static IJaneObject EvalArray(ArrayLiteral a, JaneEnvironment env)
+        {
+            var elements = EvalExpressions(a.Elements, env);
+            return new JaneArray() { Value = elements };
+        }
+
+        internal static IJaneObject EvalIndexing(IndexingExpression ie, JaneEnvironment env)
+        {
+            var indexee = Eval(ie.Indexee, env);
+            var index = Eval(ie.Index, env);
+            if (indexee is JaneArray a && index is JaneInt i)
+            {
+                return a.Value[i.Value];
+            }
+            throw new RuntimeError($"Can't Index type {indexee.Type()} with type {index.Type()}", processingToken);
+        }
+
+        internal static IJaneObject EvalInterpolatedString(InterpolatedStringLiteral s, JaneEnvironment env)
+        {
+            return new JaneString() { Value = s.Expressions.Select(x => Eval(x, env).Inspect()).Aggregate((a, b) => a + b) };
+        }
+        internal static IJaneObject EvalIntVerbString(InterpolatedVerbatimStringLiteral s, JaneEnvironment env)
+        {
+            return new JaneString() { Value = s.Expressions.Select(x => Eval(x, env).Inspect()).Aggregate((a, b) => a + b) };
+        }
+
         internal static IJaneObject EvalCallExpression(CallExpression ce, JaneEnvironment env)
         {
             var function = Eval(ce.Function, env);
-            if (function is not JaneFunction) throw new RuntimeError($"Cannot perform call on Object of Type {function.Type()}", processingToken);
+            if (function is not JaneFunction and not JaneBuiltin) throw new RuntimeError($"Cannot perform call on Object of Type {function.Type()}", processingToken);
             var args = EvalExpressions(ce.Arguments, env);
-            return ApplyFunction((JaneFunction)function, args);
+            return function is JaneFunction f ? ApplyFunction(f, args) : ApplyBuiltin((JaneBuiltin)function, args);
+        }
+
+        internal static IJaneObject ApplyBuiltin(JaneBuiltin func, IJaneObject[] args)
+        {
+            return func.Fn(args);
         }
 
         internal static IJaneObject ApplyFunction(JaneFunction func, IJaneObject[] args)

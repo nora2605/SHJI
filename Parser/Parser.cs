@@ -1,6 +1,6 @@
 ﻿using SHJI.AST;
 using SHJI.Lexer;
-using System.Collections.Generic;
+using System.ComponentModel.Design;
 using System.Globalization;
 
 namespace SHJI.Parser
@@ -22,6 +22,7 @@ namespace SHJI.Parser
             { TokenType.GT, OperatorPrecedence.COMPARE },
             { TokenType.PLUS, OperatorPrecedence.SUM },
             { TokenType.MINUS, OperatorPrecedence.SUM },
+            { TokenType.CONCAT, OperatorPrecedence.SUM },
             { TokenType.ASTERISK, OperatorPrecedence.PRODUCT },
             { TokenType.SLASH, OperatorPrecedence.PRODUCT },
             { TokenType.HAT, OperatorPrecedence.POWER },
@@ -31,7 +32,8 @@ namespace SHJI.Parser
             { TokenType.GTE, OperatorPrecedence.COMPARE },
             { TokenType.INCREMENT, OperatorPrecedence.PREFIX },
             { TokenType.DECREMENT, OperatorPrecedence.PREFIX },
-            { TokenType.LPAREN, OperatorPrecedence.CALL }
+            { TokenType.LPAREN, OperatorPrecedence.CALL },
+            { TokenType.LSQB, OperatorPrecedence.CALL },
             //{ TokenType.IN, OperatorPrecedence.COMPARE },
             //{ TokenType.LEFT_SHIFT, OperatorPrecedence.BITWISE },
             //{ TokenType.RIGHT_SHIFT, OperatorPrecedence.BITWISE },
@@ -60,7 +62,7 @@ namespace SHJI.Parser
 
         public Parser(Tokenizer tokenizer)
         {
-            this.Tokenizer = tokenizer;
+            Tokenizer = tokenizer;
             NextToken();
             NextToken();
             errors = new();
@@ -79,7 +81,14 @@ namespace SHJI.Parser
                 { TokenType.LET, ParseLetExpression },
                 //{ TokenType.BITWISE_NEGATE, ParsePrefixExpression },
                 { TokenType.INCREMENT, ParsePrefixExpression },
-                { TokenType.DECREMENT, ParsePrefixExpression }
+                { TokenType.DECREMENT, ParsePrefixExpression },
+                { TokenType.DOUBLEQUOTE, ParseInterpolatedString },
+                { TokenType.RAW_DOUBLEQUOTE, ParseString },
+                { TokenType.VERBATIM_INTERPOLATED_STRING, ParseVerbIntString },
+                { TokenType.VERBATIM_STRING, ParseVerbString },
+                { TokenType.FLOAT, ParseFloatingPoint },
+                { TokenType.SINGLEQUOTE, ParseChar },
+                { TokenType.LSQB, ParseArray }
             };
 
             BinaryParseFns = new()
@@ -97,6 +106,8 @@ namespace SHJI.Parser
                 { TokenType.LTE, ParseInfixExpression },
                 { TokenType.LPAREN, ParseCallExpression },
                 { TokenType.ASSIGN, ParseAssignment },
+                { TokenType.CONCAT, ParseInfixExpression },
+                { TokenType.LSQB, ParseIndexingExpression },
                 // { TokenType.COMMA, ParseTuple }
             };
 
@@ -330,6 +341,27 @@ namespace SHJI.Parser
             }
         }
 
+        IExpression? ParseArray()
+        {
+            ArrayLiteral al = new() { Token = curToken };
+            var e = ParseExpressionList(TokenType.RSQB);
+            if (e is null) return null;
+            al.Elements = e;
+            return al;
+        }
+
+        IExpression? ParseIndexingExpression(IExpression? left)
+        {
+            if (left is null) return null;
+            IndexingExpression i = new() { Token = curToken, Indexee = left };
+            NextToken();
+            var e = ParseExpression();
+            if (!ExpectPeek(TokenType.RSQB)) return null;
+            if (e is null) return null;
+            i.Index = e;
+            return i;
+        }
+
         IExpression? ParseAbyss()
         {
             AST.Abyss abyss = new() { Token = curToken };
@@ -445,14 +477,133 @@ namespace SHJI.Parser
             if (!ExpectPeek(TokenType.RPAREN)) return null;
             return args.ToArray();
         }
+
+        // comma seperated
+        IExpression[]? ParseExpressionList(TokenType end)
+        {
+            List<IExpression> l = new();
+            if (ExpectPeek(end)) return l.ToArray();
+            do
+            {
+                ExpectPeek(TokenType.COMMA);
+                NextToken();
+                var e = ParseExpression();
+                if (e is null) return null;
+                l.Add(e);
+            } while (!ExpectPeek(end));
+            return l.ToArray();
+        }
         #endregion
 
         #region Parse Types
+        IExpression? ParseChar()
+        {
+            CharLiteral lit = new() { Token = curToken };
+            if (!ExpectPeek(TokenType.CHAR_CONTENT)) return null;
+            lit.Value = curToken.Literal;
+            if (!ExpectPeek(TokenType.SINGLEQUOTE)) return null;
+            return lit;
+        }
+
+        IExpression? ParseInterpolatedString()
+        {
+            InterpolatedStringLiteral lit = new() { Token = curToken };
+            List<IExpression> contents = new();
+            while (ExpectPeek(TokenType.STRING_CONTENT) || ExpectPeek(TokenType.LINTERPOLATE))
+            {
+                if (CurTokenIs(TokenType.STRING_CONTENT))
+                {
+                    contents.Add(new AST.StringContent() { Token = curToken, EscapedValue = curToken.Literal });
+                }
+                else
+                {
+                    var e = ParseInterpolation();
+                    if (e is null) return null;
+                    contents.Add(e);
+                }
+            }
+            lit.Expressions = contents.ToArray();
+            if (!ExpectPeek(TokenType.DOUBLEQUOTE)) return null;
+            return lit;
+        }
+        IExpression? ParseInterpolation()
+        {
+            Interpolation i = new() { Token = curToken };
+            NextToken();
+            var e = ParseExpression();
+            if (e is null) return null;
+            i.Content = e;
+            if (!ExpectPeek(TokenType.RBRACE)) return null;
+            return i;
+        }
+
+        IExpression? ParseVerbIntString()
+        {
+            InterpolatedVerbatimStringLiteral lit = new() { Token = curToken };
+            List<IExpression> contents = new();
+            while (ExpectPeek(TokenType.STRING_CONTENT) || ExpectPeek(TokenType.LINTERPOLATE))
+            {
+                if (CurTokenIs(TokenType.STRING_CONTENT))
+                {
+                    contents.Add(new AST.StringContent() { Token = curToken, EscapedValue = curToken.Literal });
+                }
+                else
+                {
+                    var e = ParseInterpolation();
+                    if (e is null) return null;
+                    contents.Add(e);
+                }
+            }
+            lit.Expressions = contents.ToArray();
+            if (!ExpectPeek(TokenType.DOUBLEQUOTE)) return null;
+            return lit;
+        }
+
+        IExpression? ParseVerbString()
+        {
+            VerbatimStringLiteral lit = new() { Token = curToken };
+            if (!ExpectPeek(TokenType.STRING_CONTENT)) return null;
+            lit.EscapedValue = curToken.Literal;
+            if (!ExpectPeek(TokenType.DOUBLEQUOTE)) return null;
+            return lit;
+        }
+
+        IExpression? ParseString()
+        {
+            RawStringLiteral lit = new() { Token = curToken };
+            if (!ExpectPeek(TokenType.STRING_CONTENT)) return null;
+            lit.EscapedValue = curToken.Literal;
+            if (!ExpectPeek(TokenType.DOUBLEQUOTE)) return null;
+            return lit;
+        }
+
         IExpression? ParseIntegerLiteral()
         {
-            IntegerLiteral lit = new() { Token = curToken };
-            if (!int.TryParse(curToken.Literal, FormatProvider, out lit.Value))
+            INumberLiteral lit;
+            if (!int.TryParse(curToken.Literal, FormatProvider, out int i))
+                if (!long.TryParse(curToken.Literal, FormatProvider, out long l))
+                    if (!Int128.TryParse(curToken.Literal, FormatProvider, out Int128 o))
+                        if (!UInt128.TryParse(curToken.Literal, FormatProvider, out UInt128 u))
+                            return null;
+                        else lit = new UInt128Literal() { Token = curToken, Value = u };
+                    else lit = new Int128Literal() { Token = curToken, Value = o };
+                else lit = new LongLiteral() { Token = curToken, Value = l };
+            else lit = new IntegerLiteral() { Token = curToken, Value = i };
+            if (ExpectPeek(TokenType.IDENT))
+            {
+                lit.ImmediateCoalescion = curToken.Literal;
+            }
+            return lit;
+        }
+        IExpression? ParseFloatingPoint()
+        {
+            FloatLiteral lit = new() { Token = curToken };
+            if (!double.TryParse(curToken.Literal, FormatProvider, out lit.Value))
                 return null;
+            if (ExpectPeek(TokenType.IDENT))
+            {
+                lit.ImmediateCoalescion = curToken.Literal;
+            }
             return lit;
         }
 

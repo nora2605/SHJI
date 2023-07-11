@@ -29,11 +29,15 @@ namespace SHJI.AST
         public override readonly string ToString() => $"{{{(Statements.Length == 0 ? "" : Statements.Select(s => "\n\t" + s.ToString()).Aggregate((a, b) => a + b))}\n}}";
     }
 
+    internal interface INumberLiteral : IExpression
+    {
+        public string? ImmediateCoalescion { get; set; }
+    }
+
     internal interface IASTNode
     {
-        public string TokenLiteral();
         public Token Token { get; set; }
-        public string ToString() => TokenLiteral();
+        public string ToString();
 
         public string JOHNSerialize() {
             string output = "{";

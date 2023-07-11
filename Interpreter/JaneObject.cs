@@ -15,6 +15,24 @@ namespace SHJI.Interpreter
         public string? ToString() => Inspect(); 
     }
 
+    internal delegate IJaneObject JaneBuiltinFunction(params IJaneObject[] args);
+
+    internal struct JaneBuiltin : IJaneObject
+    {
+        public JaneBuiltinFunction Fn;
+        public readonly ObjectType Type() => ObjectType.Builtin;
+        public readonly string Inspect() => $"{Fn}";
+
+        public static implicit operator JaneBuiltin(JaneBuiltinFunction f) => new() { Fn = f };
+    }
+
+    internal struct JaneArray : IJaneObject
+    {
+        public IJaneObject[] Value;
+        public readonly ObjectType Type() => ObjectType.Array;
+        public readonly string Inspect() => $"[{Value.Select(x => x.Inspect()).Aggregate((a, b) => $"{a} {b}")}]";
+    }
+
     internal struct JaneFunction : IJaneObject
     {
         public string Name;
@@ -192,6 +210,7 @@ namespace SHJI.Interpreter
         Array,
         Struct,
         Interface,
-        Class
+        Class,
+        Builtin
     }
 }

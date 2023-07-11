@@ -59,7 +59,7 @@ namespace SHJI.Lexer
 
         public Token NextToken()
         {
-            SkipWhitespace();
+            if (!ReadingString) SkipWhitespace();
             Token tok = new();
             if (evaluatingNestedLexer)
             {
@@ -101,6 +101,9 @@ namespace SHJI.Lexer
                     if (ch == 'u' || ch == 'x')
                     {
                         tok = NewTokenLC(TokenType.CHAR_CONTENT, "\\" + ReadWhile((ch) => ch != '\''));
+                        ReadingChar = false;
+                        current = tok;
+                        return tok;
                     }
                     else tok = NewTokenLC(TokenType.CHAR_CONTENT, "\\" + ch);
                 }
@@ -111,15 +114,15 @@ namespace SHJI.Lexer
             }
             else if (ReadingString && !InsideInterpolation)
             {
-                if (ch == '"')
+                if (ch == '"' || (!Verbatim && ch == '\n'))
                 {
                     ReadingString = false;
-                    tok = NewTokenLC(TokenType.DOUBLEQUOTE, ch);
+                    tok = ch == '"' ? NewTokenLC(TokenType.DOUBLEQUOTE, ch) : NewTokenLC(TokenType.EOL, ch);
                 }
                 else if (Interpolated)
                 {
                     string result = "";
-                    while (ch != '"')
+                    while (ch != '"' && ch != '\0' && (Verbatim || ch != '\n'))
                     {
                         if (ch == '\\')
                         {
@@ -142,21 +145,6 @@ namespace SHJI.Lexer
                     tok = NewTokenLC(TokenType.STRING_CONTENT, result);
                     current = tok;
                     return tok;
-
-                    // Set state to no more string reading or increase the depth level and switch to interpolation reading
-                    // If Interpolation ends here decrement the depth level, set the interpolation flag to false and keep parsing string content
-
-                    // MIGHT RETURN:
-                    // 1. DOUBLEQUOTES
-                    // 2. STRING_CONTENT
-                    // 3. INTERPOLATION_OPEN
-                    // 4. RBRACE
-
-                    // Test: "1 + 1${" = ${1 + 1}"}" should work without issues and return
-                    // DOUBLEQUOTES, STRING_CONTENT("1 + 1"), INTERPOLATION_OPEN, DOUBLEQUOTES, STRING_CONTENT(" = "), INTERPOLATION_OPEN, INT(1), PLUS, INT(1), INTERPOLATION_CLOSE, DOUBLE_QUOTES, INTERPOLATION_CLOSE, DOUBLE_QUOTES
-
-
-                    // Return token
                 }
                 else
                 {
@@ -180,6 +168,9 @@ namespace SHJI.Lexer
                     case '\n':
                         line++; column = 0;
                         tok = NewTokenLC(TokenType.EOL, "\\n");
+                        break;
+                    case '~':
+                        tok = NewTokenLC(TokenType.CONCAT, ch);
                         break;
                     case '$':
                         if (PeekChar() == '{')

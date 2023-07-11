@@ -12,6 +12,7 @@
     <PackageProjectUrl>https://janelang.ml</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/nora2605/SHJI</RepositoryUrl>
+    <Platforms>AnyCPU;x64</Platforms>
   </PropertyGroup>
 
   <ItemGroup>
@@ -26,9 +27,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="JOHNCS">
-      <HintPath>..\john\JOHNCS\JOHNCS.dll</HintPath>
-    </Reference>
+    <PackageReference Include="JOHNCS" Version="1.0.0" />
+    <PackageReference Include="LLVMSharp" Version="16.0.0" />
   </ItemGroup>
 
   <ItemGroup>

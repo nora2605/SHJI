@@ -14,14 +14,6 @@ namespace SHJI.AST
         public IStatement[] statements;
         public Token Token { get;  set; }
 
-        public readonly string TokenLiteral()
-        {
-            if (statements.Length > 0)
-                return statements[0].TokenLiteral();
-            else
-                return "";
-        }
-
         public override readonly string ToString()
         {
             string output = "";
@@ -49,9 +41,23 @@ namespace SHJI.AST
         public Token Token { get; set; }
         public Identifier Name;
         public IExpression? Value;
-        public readonly string TokenLiteral() => Token.Literal;
+        public readonly override string ToString() => $"{Token.Literal} {Name}{(Value is null ? "" : $" = {Value}")}";
+    }
 
-        public readonly override string ToString() => $"{TokenLiteral()} {Name}{(Value is null ? "" : $" = {Value}")}";
+    internal struct ArrayLiteral : IExpression
+    {
+        public Token Token { get; set; }
+        public IExpression[] Elements;
+        public readonly override string ToString() => $"[{(Elements.Length == 0 ? "" : Elements.Select(x => x.ToString()).Aggregate((a, b) => $"{a} {b}"))}]";
+    }
+
+    internal struct IndexingExpression : IExpression
+    {
+        public Token Token { get; set; }
+        public IExpression Indexee;
+        public IExpression Index;
+
+        public readonly override string ToString() => $"{Indexee}[{Index}]";
     }
 
     internal struct FunctionLiteral : IStatement
@@ -62,24 +68,21 @@ namespace SHJI.AST
         public Identifier[] Parameters;
         public string ReturnType;
         public BlockStatement Body;
-        public readonly string TokenLiteral() => Token.Literal;
-        public readonly override string ToString() => $"{TokenLiteral()} {(Flags.Length == 0 ? "" : Flags.Select(x => x.Length == 1 ? $"-{x} " : $"--{x} ").Aggregate((a, b) => a + b))}{Name}({Parameters.Select(x => x.ToString()).Aggregate((a, b) => $"{a}, {b}")}){(ReturnType is null ? "" : $" -> {ReturnType}")} {Body}";
+        public readonly override string ToString() => $"{Token.Literal} {(Flags.Length == 0 ? "" : Flags.Select(x => x.Length == 1 ? $"-{x} " : $"--{x} ").Aggregate((a, b) => a + b))}{Name}({Parameters.Select(x => x.ToString()).Aggregate((a, b) => $"{a}, {b}")}){(ReturnType is null ? "" : $" -> {ReturnType}")} {Body}";
     }
 
     internal struct ReturnStatement : IStatement
     {
         public Token Token { get; set; }
         public IExpression? ReturnValue;
-        public readonly string TokenLiteral() => Token.Literal;
 
-        public override readonly string ToString() => $"{TokenLiteral()} {(ReturnValue is null ? "" : ReturnValue)}";
+        public override readonly string ToString() => $"{Token.Literal} {(ReturnValue is null ? "" : ReturnValue)}";
     }
 
     internal struct ExpressionStatement : IStatement
     {
         public Token Token { get; set; }
         public IExpression Expression;
-        public readonly string TokenLiteral() => Token.Literal;
 
         public override readonly string ToString() => $"{Expression}";
     }
@@ -89,7 +92,6 @@ namespace SHJI.AST
         public Token Token { get; set; }
         public string Value;
         public string? Type;
-        public readonly string TokenLiteral() => Token.Literal;
         public override readonly string ToString() => $"{Value}{(Type is null ? "" : $": {Type}")}";
     }
 
@@ -99,17 +101,50 @@ namespace SHJI.AST
         public IExpression Function;
         public IExpression[] Arguments;
 
-        public readonly string TokenLiteral() => Token.Literal;
         public override readonly string ToString() => $"{Function}({Arguments.Select(x => x.ToString()).Aggregate((a, b) => $"{a}, {b}")})";
     }
 
-    internal struct IntegerLiteral : IExpression
+    internal struct IntegerLiteral : IExpression, INumberLiteral
     {
         public Token Token { get; set; }
         public int Value;
+        public string? ImmediateCoalescion { get; set; }
+        public override readonly string ToString() => $"{Token.Literal}{(ImmediateCoalescion is null ? "" : ImmediateCoalescion)}";
+    }
 
-        public readonly string TokenLiteral() => Token.Literal;
-        public override readonly string ToString() => TokenLiteral();
+    // Gets parsed only if the supplied integer is too long
+    // pun not intended
+    internal struct LongLiteral : IExpression, INumberLiteral
+    {
+        public Token Token { get; set; }
+        public long Value;
+        public string? ImmediateCoalescion { get; set; }
+        public override readonly string ToString() => $"{Token.Literal}{(ImmediateCoalescion is null ? "" : ImmediateCoalescion)}";
+    }
+
+    internal struct Int128Literal : IExpression, INumberLiteral
+    {
+        public Token Token { get; set; }
+        public Int128 Value;
+        public string? ImmediateCoalescion { get; set; }
+        public override readonly string ToString() => $"{Token.Literal}{(ImmediateCoalescion is null ? "" : ImmediateCoalescion)}";
+    }
+
+    internal struct UInt128Literal : IExpression, INumberLiteral
+    {
+        public Token Token { get; set; }
+        public UInt128 Value;
+        public string? ImmediateCoalescion { get; set; }
+        public override readonly string ToString() => $"{Token.Literal}{(ImmediateCoalescion is null ? "" : ImmediateCoalescion)}";
+    }
+    // Double by default, can be made into f32 by attaching f or f32
+    internal struct FloatLiteral : IExpression, INumberLiteral
+    {
+        public Token Token { get; set; }
+        public double Value;
+        public string? ImmediateCoalescion { get; set; }
+
+        public override readonly string ToString() => $"{Token.Literal}{(ImmediateCoalescion is null ? "" : ImmediateCoalescion)}";
     }
 
     internal struct PrefixExpression : IExpression
@@ -117,7 +152,6 @@ namespace SHJI.AST
         public Token Token { get; set; }
         public string Operator;
         public IExpression Right;
-        public readonly string TokenLiteral() => Token.Literal;
         public override readonly string ToString() => $"({Operator}{Right})";
     }
 
@@ -127,7 +161,6 @@ namespace SHJI.AST
         public string Operator;
         public IExpression Left;
         public IExpression Right;
-        public readonly string TokenLiteral() => Token.Literal;
         public override readonly string ToString() => $"({Left} {Operator} {Right})";
     }
 
@@ -136,7 +169,6 @@ namespace SHJI.AST
         public Token Token { get; set; }
         public string Operator;
         public IExpression Left;
-        public readonly string TokenLiteral() => Token.Literal;
         public override readonly string ToString() => $"({Left}{Operator})";
     }
 
@@ -144,8 +176,7 @@ namespace SHJI.AST
     {
         public Token Token { get; set; }
         public bool Value;
-        public readonly string TokenLiteral() => Token.Literal;
-        public override readonly string ToString() => TokenLiteral();
+        public override readonly string ToString() => Token.Literal;
     }
 
     internal struct IfExpression : IExpression
@@ -155,7 +186,6 @@ namespace SHJI.AST
         public BlockStatement Cons; // If
         public BlockStatement? Alt; // Else
 
-        public readonly string TokenLiteral() => Token.Literal;
         public override readonly string ToString() => $"if {Condition} {Cons} {(Alt is null ? "" : $"else {Alt}")}";
     }
 
@@ -164,8 +194,6 @@ namespace SHJI.AST
         public Token Token { get; set; }
         public Identifier Name;
         public IExpression Value;
-
-        public readonly string TokenLiteral() => Token.Literal;
         public override readonly string ToString() => $"{Name} = {Value}";
     }
 
@@ -176,14 +204,62 @@ namespace SHJI.AST
         public IExpression Enumerable;
         public BlockStatement LoopContent;
 
-        public readonly string TokenLiteral() => Token.Literal;
         public override readonly string ToString() => $"for let {Iterator} in {Enumerable} {LoopContent}";
+    }
+
+    internal struct CharLiteral : IExpression
+    {
+        public Token Token { get; set; }
+        public string Value; // Needs to be able to contain escape sequences until Interpretation
+        public override readonly string ToString() => $"'{Value}'";
+    }
+
+    internal struct RawStringLiteral : IExpression
+    {
+        public Token Token { get; set; }
+        public string EscapedValue;
+
+        public override readonly string ToString() => "raw\"" + EscapedValue + "\"";
+    }
+
+    internal struct VerbatimStringLiteral : IExpression
+    {
+        public Token Token { get; set; }
+        public string EscapedValue;
+        public override readonly string ToString() => $"@\"{EscapedValue}\"";
+    }
+
+    internal struct InterpolatedVerbatimStringLiteral : IExpression
+    {
+        public Token Token { get; set; }
+        public IExpression[] Expressions;
+        public override readonly string ToString() => $"@$\"{(Expressions.Length > 0 ? Expressions.Select(x => x.ToString()).Aggregate((a, b) => a + b) : "")}\"";
+    }
+
+    internal struct InterpolatedStringLiteral : IExpression
+    {
+        public Token Token { get; set; }
+        public IExpression[] Expressions;
+        public override readonly string ToString() => $"\"{(Expressions.Length > 0 ? Expressions.Select(x => x.ToString()).Aggregate((a, b) => a + b) : "")}\"";
+    }
+
+    internal struct StringContent : IExpression
+    {
+        public Token Token { get; set; }
+        public string EscapedValue;
+        public override readonly string ToString() => EscapedValue;
+    }
+
+    internal struct Interpolation : IExpression
+    {
+        public Token Token { get; set; }
+        public IExpression Content;
+        public override readonly string ToString() => "${" + Content.ToString() + "}";
     }
 
     internal struct Abyss : IExpression
     {
         public Token Token { get; set; }
-        public readonly string TokenLiteral() => Token.Literal;
         public override readonly string ToString() => "abyss";
         readonly string IASTNode.JOHNSerialize() => "#";
     }

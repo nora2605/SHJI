@@ -28,6 +28,7 @@ namespace SHJI.Interpreter
         {
             if (Store.TryGetValue(key, out IJaneObject? obj)) return obj;
             else if (Outer is not null) return Outer.Get(key);
+            else if (Builtins.Builtins.Standard.TryGetValue(key, out JaneBuiltinFunction? blt)) return (JaneBuiltin)blt;
             return IJaneObject.JANE_UNINITIALIZED;
         }
 

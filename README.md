@@ -36,33 +36,30 @@ The following constitutes a list of features that still have to be done:
 	* Range Operator
 * Type Parsing:
 	* Number suffixes
-	* Floating Points
-	* strings
-	* characters
 
 ### Parser
 
 * Parse Lambda expressions
-* Parse Interpolated strings (TOKENIZER WORKS)
-* Parse Array Literals, Object Literals and Tuples
-* Parse different number types
-* Strings
-* Chars
+* Parse Accessor Expressions
+* Parse Object Literals and Tuples
 * Parse Control flow (for, loop, while)
 * Parse Preprocessor Directives
 * Parse #/Maths functions
 
-### Preprocessor
-
-* Have one at all
-
 ### Interpreter
 
-* Basically everything except arithmetic expression evaluation
-* A proper type-system (I have to think about a way I can evaluate operators without hardcoding every number type)
-** To that: Maybe have a file called Inbuilts\/<NumberType\>.cs that contains a lot of Operators so it doesn't clog up the Main Interpreter file
+Transition from Tree-Walking to Bytecode (speed)
+
+* A proper type-system (I have to think about a way I can evaluate operators without hardcoding every number type)						
+    * To that: Maybe have a file called Builtins\/<NumberType\>.cs that contains a lot of Operators so it doesn't clog up the Main Interpreter file
+	* Yeah actually Builtins/Type.cs seems like a good way to have a standard library of sorts.
+	* Also Rewrite the ObjectType enum to be a class to support generics, inbuilts, all that
+		* That also means there will be no "Jane..." structs anymore, just JaneObject with a specific type that is linked to the standard library
+		* Maybe the primitives have to stay, i don't know
 * External Functions (file use directives)
-* Object Orientation
+* Object Orientation (basically)
+* Type enforcement for Arrays
+* Type inference for objects
 * Custom Operator Overloading
 * Extension Blocks
 * MOST COMPLICATED TYPE SYSTEM INFER ALGORITHM: (Extendable by Runtime)
